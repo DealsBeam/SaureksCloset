@@ -4,9 +4,14 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
+import sys
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
+# A matching version string is insufficient: the actual release DLL must also
+# enable the Body controls, and the shipped artwork must retain its alignment.
+subprocess.run([sys.executable, str(root / 'tools/check_release.py')], cwd=root, check=True)
 addon = root / 'addon/SaureksCloset'
 version = re.search(r'V.VERSION = "([^"]+)"', (addon / 'Core.lua').read_text()).group(1)
 assert re.search(r'## Version: ([^\n]+)', (addon / 'SaureksCloset.toc').read_text()).group(1) == version

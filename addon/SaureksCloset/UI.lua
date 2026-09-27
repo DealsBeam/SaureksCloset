@@ -18,6 +18,7 @@ local function enabled(b,on)
     if on then b:Enable() else b:Disable() end
     b.closetEnabled=on and true or false
     if b.closetPanel then paintButton(b,on and "Up" or "Disabled") end
+    if b.UpdateBodyGlyph then b:UpdateBodyGlyph() end
 end
 local function button(parent,text,x,y,w,callback,name)
     serial=serial+1
@@ -1166,38 +1167,37 @@ function V:CreateBodyPage(p)
         serial=serial+1
         local b=CreateFrame("Button","SaureksClosetBodyArrow"..serial,parent)
         b:SetWidth(24);b:SetHeight(24)
-        -- A small open chevron sits inside the larger click target. Mirroring
-        -- one glyph keeps both shapes, shading and vertical centers identical.
-        if direction=="Prev" then b:SetPoint("RIGHT",control,"LEFT",-3,0)
-        else b:SetPoint("LEFT",control,"RIGHT",3,0) end
-        local function glyph(offset,r,g,blue,alpha)
-            -- In 1.12 a failed file-string setter leaves the button's texture
-            -- slot nil. Retain the region ourselves, including when new addon
-            -- artwork is not yet visible to the running client's file cache.
-            local t=b:CreateTexture(nil,"ARTWORK")
-            local loaded=t:SetTexture(art.."BodyChevron.tga")
-            if not loaded then
-                t:SetTexture("Interface\\MoneyFrame\\Arrow-"..(direction=="Prev" and "Left" or "Right").."-Up")
-            end
-            t:ClearAllPoints();t:SetPoint("CENTER",b,"CENTER",offset,-offset)
-            local size=loaded and 14 or 12
-            t:SetWidth(size);t:SetHeight(size);t:SetVertexColor(r,g,blue,alpha)
-            if not loaded then t:SetTexCoord(0,1,0,1)
-            elseif direction=="Prev" then t:SetTexCoord(1,0,0,1)
-            else t:SetTexCoord(0,1,0,1) end
-            return t
+        -- Both buttons use the same center anchor. A single ordinary texture
+        -- stays fixed through hover, press and disable; states only change tint.
+        -- Native button state textures and pressed offsets cannot move it.
+        b:SetPoint("CENTER",control,"CENTER",direction=="Prev" and -50 or 50,0)
+        local t=b:CreateTexture(nil,"ARTWORK");b.bodyGlyph=t
+        local loaded=t:SetTexture(art.."BodyChevron.tga")
+        b.bodyGlyphFallback=not loaded
+        if not loaded then t:SetTexture("Interface\\MoneyFrame\\Arrow-Right-Up") end
+        t:SetPoint("CENTER",b,"CENTER",0,0)
+        local size=loaded and 14 or 12
+        t:SetWidth(size);t:SetHeight(size)
+        if direction=="Prev" then t:SetTexCoord(1,0,0,1)
+        else t:SetTexCoord(0,1,0,1) end
+        b.UpdateBodyGlyph=function(self)
+            if self.closetEnabled==false then
+                self.bodyPressed=nil;t:SetVertexColor(.5,.5,.5,.45)
+            elseif self.bodyPressed then t:SetVertexColor(.7,.7,.7,1)
+            elseif self.bodyHovered then t:SetVertexColor(1,1,1,1)
+            else t:SetVertexColor(.9,.9,.9,1) end
         end
-        b:SetNormalTexture(glyph(0,1,1,1,1))
-        b:SetPushedTexture(glyph(1,.85,.85,.85,1))
-        b:SetDisabledTexture(glyph(0,.5,.5,.5,.45))
-        b:SetHighlightTexture(glyph(0,1,1,1,.24),"ADD")
+        b:UpdateBodyGlyph()
+        b:SetScript("OnMouseDown",function() if this.closetEnabled~=false then this.bodyPressed=true;this:UpdateBodyGlyph() end end)
+        b:SetScript("OnMouseUp",function() this.bodyPressed=nil;this:UpdateBodyGlyph() end)
         b:SetScript("OnClick",callback)
         b:SetScript("OnEnter",function()
+            this.bodyHovered=true;this:UpdateBodyGlyph()
             GameTooltip:SetOwner(this,"ANCHOR_RIGHT")
             GameTooltip:SetText(direction=="Prev" and "Previous option" or "Next option",1,1,1);GameTooltip:Show()
         end)
-        b:SetScript("OnLeave",function() GameTooltip:Hide() end)
-        b:SetScript("OnHide",function() GameTooltip:Hide() end)
+        b:SetScript("OnLeave",function() this.bodyHovered=nil;this.bodyPressed=nil;this:UpdateBodyGlyph();GameTooltip:Hide() end)
+        b:SetScript("OnHide",function() this.bodyHovered=nil;this.bodyPressed=nil;this:UpdateBodyGlyph();GameTooltip:Hide() end)
         return b
     end
     local function choice(box,key,index,prefix)
@@ -1219,6 +1219,15 @@ function V:CreateBodyPage(p)
         end)
         local previous=bodyArrow(box,"Prev",control,function() CloseDropDownMenus();V:CycleBody(k,-1) end)
         local nextChoice=bodyArrow(box,"Next",control,function() CloseDropDownMenus();V:CycleBody(k,1) end)
+        -- A transient load failure must not mix two different silhouettes in
+        -- one pair. The same native glyph is mirrored for both fallback sides.
+        if previous.bodyGlyphFallback or nextChoice.bodyGlyphFallback then
+            for _,arrowButton in ipairs({previous,nextChoice}) do
+                arrowButton.bodyGlyphFallback=true
+                arrowButton.bodyGlyph:SetTexture("Interface\\MoneyFrame\\Arrow-Right-Up")
+                arrowButton.bodyGlyph:SetWidth(12);arrowButton.bodyGlyph:SetHeight(12)
+            end
+        end
         self.bodyRows[key]={value=value,button=control,previous=previous,next=nextChoice,prefix=prefix}
     end
     local character=group("Body",8,82)

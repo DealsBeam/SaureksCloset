@@ -2,7 +2,7 @@
 
 # Saurek's Closet - A damn fine 1.12 Transmog
 
-**Release 3.9.1 · Addon and DLL 3.9.1**
+**Release 3.9.2 · Addon and DLL 3.9.2**
 
 **World of Warcraft 1.12.1 · Build 5875**
 

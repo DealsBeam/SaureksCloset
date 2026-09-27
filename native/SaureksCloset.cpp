@@ -355,7 +355,7 @@ static int __fastcall weaponryProbe(void* L){
 #include "ProjectileRenderer.h"
 #include "UpdateChecker.h"
 #include "VoiceRenderer.h"
-static int __fastcall version(void* L){return result(L,30901);}
+static int __fastcall version(void* L){return result(L,30902);}
 static void __fastcall registerHook(const char* name,std::uintptr_t function){
     registerOriginal(name,function);
     if(name&&std::strcmp(name,"SetUnitVisibleItemID")==0){

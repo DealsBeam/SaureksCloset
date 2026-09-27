@@ -1,4 +1,4 @@
-# Building Saurek's Closet 3.9.1
+# Building Saurek's Closet 3.9.2
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -29,7 +29,7 @@ The packager creates the installable addon ZIP, checks its integrity, and verifi
 
 The local Lua regression suite uses Lua 5.0.3 and extracted original Blizzard UI references listed in `tests/test.lua`. These client references are not distributed in this repository. Native test sources cover appearance state, previews, weapon routing, and attachment lifetime simulations.
 
-The 3.9.1 release passed the focused Lua suites for bags, wardrobe saving,
+The 3.9.2 release passed the focused Lua suites for bags, wardrobe saving,
 preview rotation, updates, armor recovery and equipment UI isolation; the native
 weapon, armor and equipment simulations passed address and undefined-behavior
 sanitizers (leak detection is unavailable in the traced build sandbox). All 83
@@ -99,14 +99,25 @@ Run `lua5.1 tests/wardrobe_save.lua`, `lua5.1 tests/minimap_toggle.lua`, and
 `lua5.1 tests/preview_drag.lua`. They exercise the real Save/New/Update handlers,
 edited-name tracking, live-preview and bag-fit capture, discard/cancel popup
 callbacks, failed-switch preservation, minimap controls and scaled mouse drag
-through model-buffer swaps. Release 3.9.1 uses native renderer 30901.
+through model-buffer swaps. Release 3.9.2 uses native renderer 30902.
 
-### Release 3.9.1
+### Release 3.9.2
 
-Addon 3.9.1, native renderer 30901 (DLL 3.9.1), and `update-version.txt` must agree.
+Addon 3.9.2, native renderer 30902 (DLL 3.9.2), and `update-version.txt` must agree.
 Run `python3 tests/release_version.py` after updating these references and packaging.
 Run `lua5.1 tests/body_arrow_loading.lua` for native texture-load failure handling.
 The five fixed bag slots preserve placements when another slot is cleared.
 Bag selection, tuner cleanup, and the centered Apply button are covered by the
 focused bag UI and browser geometry checks. Historical versions above identify
 when individual features and validations were introduced.
+
+### Mandatory release regression gate
+
+`tools/package.py` runs `tools/check_release.py` before creating an installer.
+Use Python with Pillow and Lua 5.1 installed. The same gate runs in GitHub Actions
+on every push and pull request. Body compatibility is checked using the real
+release requirement; unknown versions and missing native APIs remain rejected.
+Arrow tests exercise normal, hover, held, release, disabled and hide states,
+including failed/intermittent texture loading. Pixel checks render the shipped
+chevron with actual Lua-emitted geometry at six UI scales. These tests caught
+both the 3.9.1 compatibility-list omission and the old pressed-state offset.
