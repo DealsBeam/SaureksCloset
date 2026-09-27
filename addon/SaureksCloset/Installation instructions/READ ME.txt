@@ -1,15 +1,30 @@
 SAUREK'S CLOSET - INSTALLATION
 
-Version 3.7.11 requires renderer 30711 (DLL 3.7.11).
+Version 3.9.1 requires renderer 30901 (DLL 3.9.1).
 Simple mode changes your equipped main hand, off hand and ranged slots.
 Check Advanced mode to choose separate carried items and tune placement.
 Both modes preserve your saved choices. See WEAPON-MENU.md.
+Bags has five fixed customizable slots with eight model choices.
+The Cloth Pouch includes Burgundy, Navy, Ochre and Olive color options.
+Click an empty slot to open its visual model picker and tuner. A bag is added
+only after you choose its model. Choose a color and Back, Left hip or Right hip,
+then adjust its fit. All five slots stay visible; removing one leaves it empty.
+Save Fit stores the bag's fit in the current look. See BAGS-MENU.md.
+The wardrobe Save button updates your active saved look, including live previews
+and bag tuning. New looks open Saved Looks for naming. Edited looks retain their
+name with (Edited), and switching looks warns before discarding unsaved changes.
+Save is greyed out while there are no unsaved changes. Preview rotation alone
+does not enable it.
+Right-click the minimap button for Toggle Addon or Refresh Addon.
+Refresh Addon reloads the interface while retaining current appearance and bag
+fit changes in your unsaved look. Drag either preview to rotate it.
 
 INSTALLING OR UPDATING
 
-This update includes a new native renderer. Fully quit and restart WoW after
-installing it. /reload cannot replace a loaded DLL. Character-screen bag
-previews now use the same fitted size and placement as the world bag.
+Install both the addon and DLL from version 3.9.1, then fully restart the game.
+The /reload command cannot replace a loaded DLL. Character equipment icons
+and inventory tooltips now always use real equipment. Cosmetic appearances
+remain visible on the world character and 3D previews.
 
 1. Fully close World of Warcraft.
 2. Copy the SaureksCloset addon folder into Interface/AddOns.
@@ -32,5 +47,5 @@ The DLL copy in this instructions folder is only for installation;
 WoW will not load it from here. After replacing a DLL, fully restart the
 game. The /reload command only reloads the addon.
 
-Version Details should show addon 3.7.11, loaded DLL 3.7.11, and required
-DLL 3.7.11. These are the compatible versions for this update.
+Version Details should show addon 3.9.1, loaded DLL 3.9.1, and required
+DLL 3.9.1. These are the compatible versions for this update.

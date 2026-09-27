@@ -5,7 +5,7 @@ V.bodyLabels={skin="Skin color",face="Face",hairStyle="Hair style",hairColor="Ha
 function V:BodyAvailable()
     if type(SaureksClosetRendererVersion)~="function" then return false end
     local ok,version=pcall(SaureksClosetRendererVersion)
-    return ok and (version==30001 or version==30002 or version==30003 or version==30004 or version==30005 or version==30006 or version==30400 or version==30422 or version==30424 or version==30426 or version==30428 or version==30429 or version==30431 or version==30432 or version==30433 or version==30436 or version==30437 or version==30438 or version==30439 or version==30446 or version==30447 or version==30448 or version==30449 or version==30450 or version==30500 or version==30501 or version==30502 or version==30503 or version==30504 or version==30505 or version==30506 or version==30507 or version==30508 or version==30509 or version==30510 or version==30511 or version==30512 or version==30513 or version==30514 or version==30515 or version==30608 or version==30700 or version==30702 or version==30703 or version==30704 or version==30708 or version==30709 or version==30710 or version==30711) and type(SaureksClosetSetAppearance)=="function" and type(SaureksClosetClearAppearance)=="function" and type(SaureksClosetRealBody)=="function"
+    return ok and (version==30001 or version==30002 or version==30003 or version==30004 or version==30005 or version==30006 or version==30400 or version==30422 or version==30424 or version==30426 or version==30428 or version==30429 or version==30431 or version==30432 or version==30433 or version==30436 or version==30437 or version==30438 or version==30439 or version==30446 or version==30447 or version==30448 or version==30449 or version==30450 or version==30500 or version==30501 or version==30502 or version==30503 or version==30504 or version==30505 or version==30506 or version==30507 or version==30508 or version==30509 or version==30510 or version==30511 or version==30512 or version==30513 or version==30514 or version==30515 or version==30608 or version==30700 or version==30702 or version==30703 or version==30704 or version==30708 or version==30709 or version==30710 or version==30711 or version==30712 or version==30713 or version==30800) and type(SaureksClosetSetAppearance)=="function" and type(SaureksClosetClearAppearance)=="function" and type(SaureksClosetRealBody)=="function"
 end
 function V:BodyValues(body,key)
     local d=VanityStudioBodyOptions[body.race] and VanityStudioBodyOptions[body.race][body.sex]
@@ -130,6 +130,7 @@ function V:Diagnose()
     local version,build=GetBuildInfo()
     table.insert(lines,"Client: "..tostring(version).." build "..tostring(build))
     table.insert(lines,"Armor helper: "..tostring(self:Available()))
+    table.insert(lines,"Armor visual inspection: "..tostring(type(SaureksClosetInspectArmor)=="function"))
     table.insert(lines,"Old body helper loaded: "..tostring(type(SaureksClosetSetBody)=="function"))
     table.insert(lines,"World appearance enabled: "..tostring(VanityStudioCharacter.enabled))
     table.insert(lines,"Saved body present: "..tostring(VanityStudioCharacter.body~=nil))
@@ -159,9 +160,21 @@ function V:Diagnose()
         end
     end
     for _,slot in ipairs(self.slotOrder) do
+        -- Empty slots can return no values at all in the 1.12 client. Capture
+        -- the result first so tostring always receives one argument.
+        local equipped=GetInventoryItemLink("player",slot)
         table.insert(lines,"Slot "..slot..": selected="..tostring(VanityStudioCharacter.selected[slot])..
             "; applied="..tostring(self.applied[slot]).."; managed="..tostring(VanityStudioCharacter.managed[slot])..
-            "; equipped="..tostring(GetInventoryItemLink("player",slot)).."; error="..tostring(self.errors[slot]))
+            "; equipped="..tostring(equipped).."; error="..tostring(self.errors[slot]))
+        if type(SaureksClosetInspectArmor)=="function" and self.ArmorVisualSelection then
+            local expected=self:ArmorVisualSelection(slot)
+            if expected~=nil then
+                local ok,status,display,dirty,attachments=pcall(SaureksClosetInspectArmor,slot,expected)
+                table.insert(lines,"Armor visual "..slot..": expected="..expected.."; ok="..tostring(ok)..
+                    "; status="..tostring(status).."; rendered="..tostring(display)..
+                    "; dirty="..tostring(dirty).."; attachments="..tostring(attachments))
+            end
+        end
     end
     table.insert(lines,"Armor event history:")
     for _,entry in ipairs(self.armorHistory or VanityStudioDB.armorHistory or {}) do
@@ -170,8 +183,8 @@ function V:Diagnose()
     local report=table.concat(lines,"\n").."\n"
     VanityStudioDB.diagnostics=report
     if type(WriteFile)=="function" then
-        local ok=pcall(WriteFile,"SaureksCloset-diagnostics.txt","w",report)
-        if ok then self:Message("Saved VanillaHelpersData/SaureksCloset-diagnostics.txt in the game folder.");return end
+        local ok,written=pcall(WriteFile,"SaureksCloset-diagnostics.txt","w",report)
+        if ok and written~=false then self:Message("Saved VanillaHelpersData/SaureksCloset-diagnostics.txt in the game folder.");return end
     end
     self:Message("Diagnostic report saved in VanityStudioDB at logout.")
 end

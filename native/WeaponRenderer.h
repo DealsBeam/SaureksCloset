@@ -2,6 +2,7 @@
 #include "WeaponState.h"
 #include "BowPlacement.h"
 #include "BagPlacement.h"
+#include "BagCatalog.h"
 #include "PlacementTuning.h"
 #include "StaffPlacement.h"
 #include "StaffFits.h"
@@ -48,6 +49,13 @@ static const auto hasPoint=weaponFunction<HasPoint>(0x712CB0);
 static const auto loadChild=weaponFunction<LoadChild>(0x4798C0);
 static const auto refreshMelee=weaponFunction<void (__thiscall *)(void*,unsigned)>(0x605DA0);
 static const auto refreshRanged=weaponFunction<void (__thiscall *)(void*,unsigned)>(0x611E10);
+struct BagInstance {
+    unsigned model=0,mount=0;
+    void* child=nullptr;
+    BagMotion motion;
+    std::array<BagTuningEntry,16> fits{};
+};
+static unsigned bagAttachment(unsigned mount){return mount==1?32:mount==2?33:28;}
 struct WeaponContext {
     std::uintptr_t parent=0,unit=0;std::uint64_t guid=0;unsigned token=0;
     WeaponSelection selection;
@@ -57,6 +65,8 @@ struct WeaponContext {
     unsigned backBag=0;
     void* backpack=nullptr;
     BagMotion bagMotion;
+    std::array<BagInstance,8> bags{};
+    unsigned bagGeneration=0;
     std::array<int,3> routes{{-1,-1,-1}};
     std::array<void*,10> extra{};
     // Observed native composition results, never owned or retained by Closet.
@@ -66,6 +76,11 @@ struct WeaponContext {
     std::array<unsigned char,8> rangedInfo{};
 };
 static std::array<WeaponContext,9> weaponContexts{};
+static std::uint32_t bagGenerationCounter=0;
+static unsigned nextBagGeneration(){
+    if(++bagGenerationCounter==0)++bagGenerationCounter;
+    return bagGenerationCounter;
+}
 static int scopedSheathPoint=-1;
 static bool scopedProjectileAppearance=false;
 static std::uintptr_t loadingExtraParent=0;
@@ -73,25 +88,57 @@ static WeaponContext* weaponContext(std::uintptr_t model){
     for(auto& c:weaponContexts)if(model&&c.parent==model)return &c;
     return nullptr;
 }
+static bool hasBagInstances(const WeaponContext& context){
+    for(const auto& bag:context.bags)if(bag.model)return true;
+    return false;
+}
+static BagInstance* ownedBagInstance(WeaponContext& context,void* child){
+    for(auto& bag:context.bags)if(child&&bag.child==child)return &bag;
+    return nullptr;
+}
 // Stock CharacterModelFrame/DressUpModel clones do not use addon preview tokens.
 // Remember only copies originating from our player's bag-bearing model. These
 // are weak identities: the client owns every cloned model and child reference.
 struct ClonedBagPreview { std::uintptr_t model=0;std::uint64_t guid=0; };
 static std::array<ClonedBagPreview,32> clonedBagPreviews{};
+struct ClonedBagChild {
+    std::uintptr_t child=0;std::uint64_t guid=0;unsigned identity=0;
+    BagInstance bag;
+};
+static std::array<ClonedBagChild,256> clonedBagChildren{};
+static ClonedBagChild* clonedBagChild(std::uintptr_t model){
+    for(auto& entry:clonedBagChildren)if(model&&entry.child==model)return &entry;
+    return nullptr;
+}
 static std::uint64_t clonedBagOwner(std::uintptr_t model){
     for(const auto& entry:clonedBagPreviews)if(model&&entry.model==model)return entry.guid;
     return 0;
 }
 static void rememberClonedBagPreview(std::uintptr_t source,std::uintptr_t model){
     if(!source||!model||source==model)return;
+    // 70EB85 recursively calls the hooked clone factory for each attachment.
+    // Preserve the exact source instance: repeated meshes can have different fits.
+    ClonedBagChild copy;
+    for(const auto& context:weaponContexts)if(context.guid==getPlayer())
+        for(unsigned i=0;i<context.bags.size();++i)if(source==reinterpret_cast<std::uintptr_t>(context.bags[i].child)){
+            copy.child=model;copy.guid=context.guid;copy.identity=201+i;copy.bag=context.bags[i];
+        }
+    if(!copy.child)if(const auto* previous=clonedBagChild(source)){copy=*previous;copy.child=model;}
+    if(copy.child&&copy.guid==getPlayer()){
+        copy.bag.child=reinterpret_cast<void*>(model);copy.bag.motion={};
+        for(auto& entry:clonedBagChildren)if(entry.child==model){entry=copy;return;}
+        for(auto& entry:clonedBagChildren)if(!entry.child){entry=copy;return;}
+        return;
+    }
     const auto* context=weaponContext(source);
-    const auto guid=context&&context->backBag==1?context->guid:clonedBagOwner(source);
+    const auto guid=context&&(context->backBag==1||hasBagInstances(*context))?context->guid:clonedBagOwner(source);
     if(!guid||guid!=getPlayer())return;
     for(auto& entry:clonedBagPreviews)if(entry.model==model){entry.guid=guid;return;}
     for(auto& entry:clonedBagPreviews)if(!entry.model){entry={model,guid};return;}
 }
 static bool ownedExtra(const WeaponContext& c,void* child){
     if(child&&c.backpack==child)return true;
+    for(const auto& bag:c.bags)if(child&&bag.child==child)return true;
     if(child&&c.passthroughQuiver==child)return true;
     for(auto p:c.extra)if(p&&p==child)return true;
     return false;
@@ -151,7 +198,7 @@ static bool bagTuningLuaKey(void* L,unsigned& bag,unsigned& race,unsigned& sex){
     for(int i=0;i<3;++i){
         if(!isNumber(L,i+1))return false;
         const double value=toNumber(L,i+1);
-        if(!std::isfinite(value)||value<0||value>107||value!=static_cast<unsigned>(value))return false;
+        if(!std::isfinite(value)||value<0||value>208||value!=static_cast<unsigned>(value))return false;
         values[i]=static_cast<unsigned>(value);
     }
     bag=values[0];race=values[1];sex=values[2];
@@ -160,13 +207,18 @@ static bool bagTuningLuaKey(void* L,unsigned& bag,unsigned& race,unsigned& sex){
 static int __fastcall getBagFitDefaults(void* L){
     unsigned bag=0,race=0,sex=0;BagTuningValues values;
     if(!bagTuningLuaKey(L,bag,race,sex)||!bagTuningDefaults(bag,race,sex,values))return result(L,-2);
+    if(bag>=201&&isNumber(L,4)){
+        const double mount=toNumber(L,4);
+        if(mount!=0&&mount!=1&&mount!=2)return result(L,-2);
+        if(!bagInstanceTuningDefaults(static_cast<unsigned>(mount),race,sex,values))return result(L,-2);
+    }
     pushNumber(L,1);
     for(float value:{values.left,values.inset,values.up,values.pitch,values.roll,values.yaw,values.scale})pushNumber(L,value);
     return 8;
 }
 static int __fastcall setBagFit(void* L){
     unsigned bag=0,race=0,sex=0;
-    if(!bagTuningLuaKey(L,bag,race,sex)||!isNumber(L,4))return result(L,-2);
+    if(!bagTuningLuaKey(L,bag,race,sex)||bag>=201||!isNumber(L,4))return result(L,-2);
     const double enabled=toNumber(L,4);
     if(enabled!=0&&enabled!=1)return result(L,-2);
     BagTuningValues values;
@@ -198,32 +250,39 @@ static bool positionBackpack(void* child,std::array<float,16>& adjusted,bool smo
     const auto model=reinterpret_cast<std::uintptr_t>(child);
     std::uintptr_t parent=0,data=0,header=0,attachments=0,lookup=0;
     unsigned point=0;std::uint16_t index=0;
-    if(!read(model+0x1CC,parent)||!read(model+0x1D0,point)||point!=28)return false;
+    if(!read(model+0x1CC,parent)||!read(model+0x1D0,point))return false;
     auto* context=weaponContext(parent);
-    WeaponContext cloned;
-    if(!context&&clonedBagOwner(parent)&&weaponModelMatches(child,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx")){
-        cloned.parent=parent;cloned.guid=clonedBagOwner(parent);cloned.backBag=1;cloned.backpack=child;
-        context=&cloned;smooth=false; // Fit the preview's own bones/view; never inherit world motion.
+    BagInstance* instance=context?ownedBagInstance(*context,child):nullptr;
+    unsigned identity=instance?201+static_cast<unsigned>(instance-context->bags.data()):1;
+    const auto owner=context?context->guid:clonedBagOwner(parent);
+    bool legacy=context&&context->backpack==child&&context->backBag==1;
+    if(!context&&owner){
+        if(auto* copy=clonedBagChild(model)){
+            if(copy->guid!=owner)return false;
+            instance=&copy->bag;identity=copy->identity;
+        }else legacy=weaponModelMatches(child,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx");
+        smooth=false;
     }
-    if(!context||context->guid!=getPlayer()||context->backpack!=child||context->backBag!=1)return false;
-    bagTuningUseOwner(context->guid);
+    const unsigned mount=instance?instance->mount:0;
+    if(!owner||owner!=getPlayer()||point!=bagAttachment(mount)||(!instance&&!legacy))return false;
+    if(instance){const auto* asset=bagAsset(instance->model);if(!asset||!weaponModelMatches(child,asset->model))return false;}
+    bagTuningUseOwner(owner);
+    BagMotion previewMotion;
+    auto& motion=instance?instance->motion:context?context->bagMotion:previewMotion;
     std::array<float,16> back,torso,local,modelToRender;std::array<float,3> position;
-    if(!animatedAttachmentMatrix(parent,28,back,&torso)||!read(model+0xBC,local)||!read(parent+0xFC,modelToRender)||
+    // The back anchor identifies the race/sex fit even for a hip-mounted bag.
+    // Position and animation come from the chosen attachment's own parent bone.
+    if(!animatedAttachmentMatrix(parent,point,back,&torso)||!read(model+0xBC,local)||!read(parent+0xFC,modelToRender)||
        !read(parent+0x30,data)||!read(data+0x130,header)||!read(header+0x110,lookup)||
        !read(lookup+56,index)||!read(header+0x108,attachments)||!read(attachments+48*index+8,position)){
-        context->bagMotion={};return false;
+        motion={};return false;
     }
-    // 7076BE copies the graphics view to scene+0x9C; 714389 composes it
-    // through root/attachment placement into model+0xFC. Cancel that shared
-    // basis to get world vertical even on a mount, independent of the camera.
-    // If the scene is between updates, retain a rigid visible bag until ready.
     BagMatrix worldToRender;std::uintptr_t scene=0;
-    if(smooth&&(!read(parent+0x2C,scene)||!scene||!read(scene+0x9C,worldToRender))){
-        context->bagMotion={};smooth=false;
-    }
-    const bool valid=bagPlacement(back,torso,local,position,adjusted,context->backBag,
-        smooth?&context->bagMotion:nullptr,smooth?bagClockMilliseconds():0,header,bagIsRunning(*context),&modelToRender,smooth?&worldToRender:nullptr,bagAirLiftTarget(*context));
-    if(!valid)context->bagMotion={};
+    if(smooth&&(!read(parent+0x2C,scene)||!scene||!read(scene+0x9C,worldToRender))){motion={};smooth=false;}
+    const bool valid=bagPlacement(back,torso,local,position,adjusted,1,
+        smooth?&motion:nullptr,smooth?bagClockMilliseconds():0,header,context&&bagIsRunning(*context),&modelToRender,
+        smooth?&worldToRender:nullptr,context?bagAirLiftTarget(*context):0,instance?instance->fits.data():nullptr,mount,identity);
+    if(!valid)motion={};
     return valid;
 }
 static bool positionStoredBow(void* child,const float* attachment,std::array<float,16>& adjusted){
@@ -502,8 +561,10 @@ static void updateWeaponAttachment(void* model,const float* matrix,const float* 
     std::uintptr_t parent=0;read(reinterpret_cast<std::uintptr_t>(model)+0x1CC,parent);
     const auto* context=weaponContext(parent);
     const bool clonedBag=!context&&clonedBagOwner(parent)&&
-        weaponModelMatches(model,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx");
-    if((context&&context->backpack==model)||clonedBag){
+        (clonedBagChild(reinterpret_cast<std::uintptr_t>(model))||
+         weaponModelMatches(model,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx"));
+    bool instance=false;if(context)for(const auto& bag:context->bags)if(bag.child==model)instance=true;
+    if((context&&context->backpack==model)||instance||clonedBag){
         // Wait for valid animated bones instead of briefly drawing a shield pose.
         if(positionBackpack(model,adjusted,true))updateAttachedOriginal(model,adjusted.data(),color,lighting,alpha);
         else updateAttachedOriginal(model,matrix,color,lighting,0);
@@ -549,11 +610,25 @@ static void releaseBackpack(WeaponContext& c){
     if(read(reinterpret_cast<std::uintptr_t>(child)+0x1CC,parent)&&parent==c.parent)detachChild(child);
     releaseModel(child);
 }
+static void releaseBagInstance(WeaponContext& context,BagInstance& bag){
+    auto* child=bag.child;bag.child=nullptr;bag.motion={};
+    if(!child)return;
+    std::uintptr_t parent=0;
+    if(read(reinterpret_cast<std::uintptr_t>(child)+0x1CC,parent)&&parent==context.parent)detachChild(child);
+    releaseModel(child);
+}
+static void releaseBagInstances(WeaponContext& context){
+    if(hasBagInstances(context))context.bagGeneration=nextBagGeneration();
+    for(auto& bag:context.bags){releaseBagInstance(context,bag);bag={};}
+}
 static void forgetWeapons(std::uintptr_t model){
+    for(auto& entry:clonedBagChildren)if(entry.child==model)entry={};
     for(auto& entry:clonedBagPreviews)if(entry.model==model)entry={};
-    for(auto& c:weaponContexts)for(auto& child:c.nativeChildren)
-        if(reinterpret_cast<std::uintptr_t>(child)==model)child=nullptr;
-    if(auto* c=weaponContext(model)){releaseExtras(*c);releasePassthroughQuiver(*c);releaseBackpack(*c);*c={};}
+    for(auto& c:weaponContexts){
+        for(auto& child:c.nativeChildren)if(reinterpret_cast<std::uintptr_t>(child)==model)child=nullptr;
+        for(auto& bag:c.bags)if(reinterpret_cast<std::uintptr_t>(bag.child)==model){bag.child=nullptr;bag.motion={};}
+    }
+    if(auto* c=weaponContext(model)){releaseExtras(*c);releasePassthroughQuiver(*c);releaseBackpack(*c);releaseBagInstances(*c);*c={};}
 }
 static void discardInheritedPreviewWeapons(std::uintptr_t parent){
     const auto* preview=previews.find(parent);
@@ -792,13 +867,19 @@ static bool ensureBackpack(WeaponContext& c){
     }
     std::uintptr_t parent=0;unsigned loaded=0;
     if(!read(reinterpret_cast<std::uintptr_t>(c.backpack)+0x1CC,parent))return false;
+    if(parent&&parent!=c.parent){releaseBackpack(c);return false;}
+    unsigned point=0;
+    if(parent&&(!read(reinterpret_cast<std::uintptr_t>(c.backpack)+0x1D0,point)||point!=28)){
+        detachChild(c.backpack);parent=0;c.bagMotion={};
+    }
     if(!parent)attachChild(c.backpack,reinterpret_cast<void*>(c.parent),28);
-    if((parent&&parent!=c.parent)||!read(reinterpret_cast<std::uintptr_t>(c.backpack)+0x10,loaded)||!loaded)return false;
+    if(!read(reinterpret_cast<std::uintptr_t>(c.backpack)+0x10,loaded)||!loaded)return false;
     if(!weaponModelMatches(c.backpack,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx")){
         releaseBackpack(c);return false;
     }
     return true;
 }
+static bool ensureBagInstances(WeaponContext& context);
 static int __fastcall setWeapons(void* L){
     unsigned values[11]{};
     for(int i=0;i<11;++i){
@@ -864,21 +945,23 @@ static int __fastcall setWeapons(void* L){
         for(auto& e:previews.entries)if(e.token==token&&e.guid==p.guid&&e.status==1)parent=e.model;
         if(!parent)return result(L,-1);
     }else if(p.display!=p.native){
-        if(auto* c=weaponContext(parent)){releaseExtras(*c);releasePassthroughQuiver(*c);releaseBackpack(*c);*c={};}
+        if(auto* c=weaponContext(parent)){releaseExtras(*c);releasePassthroughQuiver(*c);releaseBackpack(*c);releaseBagInstances(*c);*c={};}
         return result(L,0);
     }
     unsigned loaded=0;if(!parent||!read(parent+0x10,loaded)||!loaded)return result(L,0);
     auto* c=weaponContext(parent);
     const bool keepContext=!selection.empty()||selection.carriedMode==1||options[0]||
-        (selection.carriedMode<0&&(options[1]||options[2]))||(token&&actualQuiver)||backBag;
+        (selection.carriedMode<0&&(options[1]||options[2]))||(token&&actualQuiver)||backBag||(c&&hasBagInstances(*c));
     if(!c&&!keepContext)return result(L,1);
     if(!c){
         for(auto& entry:weaponContexts)if(!entry.parent){c=&entry;break;}
         if(!c)return result(L,-1);
         c->parent=parent;c->unit=token?0:p.unit;c->guid=p.guid;c->token=token;
+        c->bagGeneration=nextBagGeneration();
     }
     if(c->guid!=p.guid||c->token!=token)return result(L,-1);
     if(token&&c->previewMode!=previewMode){releaseExtras(*c);c->previewMode=previewMode;}
+    if(backBag&&hasBagInstances(*c))releaseBagInstances(*c);
     if(c->backBag!=backBag){releaseBackpack(*c);c->backBag=backBag;}
     // Visual options alone must not destroy or rebuild any weapon children.
     c->quiverHorizontal=options[0];c->hideRangedWhenStored=selection.carriedMode<0&&options[1];
@@ -931,7 +1014,137 @@ static int __fastcall setWeapons(void* L){
     }
     const bool extrasComplete=ensureExtras(*c);
     const bool bagComplete=ensureBackpack(*c);
-    const bool complete=ensurePassthroughQuiver(*c)&&extrasComplete&&bagComplete;
+    const bool instancesComplete=ensureBagInstances(*c);
+    const bool complete=ensurePassthroughQuiver(*c)&&extrasComplete&&bagComplete&&instancesComplete;
     if(!keepContext){releasePassthroughQuiver(*c);*c={};}
     return result(L,complete?1:0);
+}
+
+// Bag selections and fits are private per render context. They never enter
+// inventory/visible-item fields, and preview fits cannot overwrite world fits.
+static bool ensureBagInstances(WeaponContext& context){
+    bool complete=true;
+    for(auto& bag:context.bags){
+        const auto* asset=bagAsset(bag.model);
+        if(!asset){releaseBagInstance(context,bag);continue;}
+        const unsigned point=bagAttachment(bag.mount);
+        if(!hasPoint(reinterpret_cast<void*>(context.parent),point)){complete=false;continue;}
+        if(bag.child){
+            std::uintptr_t owner=0;unsigned actualPoint=0;
+            const auto child=reinterpret_cast<std::uintptr_t>(bag.child);
+            if(!read(child+0x1CC,owner)){complete=false;continue;}
+            if(owner&&owner!=context.parent){
+                // The other parent owns its attachment reference. Drop only our
+                // retain, then create a replacement on our own character.
+                releaseBagInstance(context,bag);
+            }else if(owner&&(!read(child+0x1D0,actualPoint)||actualPoint!=point)){
+                detachChild(bag.child);attachChild(bag.child,reinterpret_cast<void*>(context.parent),point);
+                bag.motion={};
+            }
+        }
+        if(!bag.child){
+            std::uintptr_t before=0,after=0;read(context.parent+0x1DC,before);
+            loadingExtraParent=context.parent;
+            loadChild(reinterpret_cast<void*>(context.parent),point,asset->model,asset->texture,0);
+            loadingExtraParent=0;read(context.parent+0x1DC,after);
+            std::uintptr_t owner=0;unsigned actualPoint=0;
+            if(!after||after==before||!read(after+0x1CC,owner)||owner!=context.parent||
+                !read(after+0x1D0,actualPoint)||actualPoint!=point){complete=false;continue;}
+            bag.child=reinterpret_cast<void*>(after);retainChild(bag.child);
+        }
+        std::uintptr_t owner=0;unsigned loaded=0;
+        const auto child=reinterpret_cast<std::uintptr_t>(bag.child);
+        if(!read(child+0x1CC,owner)){complete=false;continue;}
+        if(!owner)attachChild(bag.child,reinterpret_cast<void*>(context.parent),point);
+        if((owner&&owner!=context.parent)||!read(child+0x10,loaded)||!loaded){complete=false;continue;}
+        if(!weaponModelMatches(bag.child,asset->model)){releaseBagInstance(context,bag);complete=false;}
+    }
+    return complete;
+}
+static bool bagLuaUnsigned(void* L,int index,unsigned maximum,unsigned& out){
+    if(!isNumber(L,index))return false;
+    const double value=toNumber(L,index);
+    if(!std::isfinite(value)||value<0||value>maximum||value!=static_cast<unsigned>(value))return false;
+    out=static_cast<unsigned>(value);return true;
+}
+static int bagSelectionResult(void* L,int status,unsigned generation){
+    pushNumber(L,status);pushNumber(L,generation);return 2;
+}
+static int __fastcall setBags(void* L){
+    unsigned token=0;std::array<unsigned,8> models{},mounts{};
+    if(!bagLuaUnsigned(L,1,2147483647,token)||isNumber(L,18))return result(L,-2);
+    bool any=false;
+    for(unsigned i=0;i<8;++i){
+        if(!bagLuaUnsigned(L,2+2*i,2147483647,models[i])||
+            !bagLuaUnsigned(L,3+2*i,2,mounts[i])||
+            (models[i]&&!bagAsset(models[i]))||(!models[i]&&mounts[i]))return result(L,-2);
+        any=any||models[i]!=0;
+    }
+    Player player;if(!snapshot(player))return result(L,-1);
+    std::uintptr_t parent=player.model;
+    if(token){
+        parent=0;
+        for(const auto& entry:previews.entries)if(entry.token==token&&entry.guid==player.guid&&entry.status==1)parent=entry.model;
+        if(!parent)return result(L,-1);
+    }else if(player.display!=player.native){
+        if(auto* context=weaponContext(parent)){releaseExtras(*context);releasePassthroughQuiver(*context);
+            releaseBackpack(*context);releaseBagInstances(*context);*context={};}
+        return result(L,0);
+    }
+    unsigned loaded=0;if(!parent||!read(parent+0x10,loaded)||!loaded)return result(L,0);
+    auto* context=weaponContext(parent);
+    if(!context&&!any)return bagSelectionResult(L,1,0);
+    if(!context){
+        for(auto& entry:weaponContexts)if(!entry.parent){context=&entry;break;}
+        if(!context)return result(L,-1);
+        context->parent=parent;context->unit=token?0:player.unit;context->guid=player.guid;context->token=token;
+        context->bagGeneration=nextBagGeneration();
+    }
+    if(context->guid!=player.guid||context->token!=token)return result(L,-1);
+    releaseBackpack(*context);context->backBag=0;
+    bool changed=false;
+    for(unsigned i=0;i<8;++i){
+        auto& bag=context->bags[i];
+        if(bag.model!=models[i]||bag.mount!=mounts[i]){
+            releaseBagInstance(*context,bag);bag={};bag.model=models[i];bag.mount=mounts[i];changed=true;
+        }
+    }
+    if(changed)context->bagGeneration=nextBagGeneration();
+    const bool complete=ensureBagInstances(*context);
+    if(!any&&context->selection.empty()&&context->selection.carriedMode!=1&&!context->quiverHorizontal&&
+        !context->hideRangedWhenStored&&!context->hideMeleeWhenStored&&!(token&&context->actualQuiver)&&!context->backBag){
+        releaseExtras(*context);releasePassthroughQuiver(*context);*context={};
+    }
+    return bagSelectionResult(L,complete?1:0,context->bagGeneration);
+}
+static int __fastcall setBagInstanceFit(void* L){
+    unsigned token=0,slot=0,race=0,sex=0,enabled=0;
+    if(!bagLuaUnsigned(L,1,2147483647,token)||!bagLuaUnsigned(L,2,8,slot)||!slot||
+        !bagLuaUnsigned(L,3,8,race)||!race||!bagLuaUnsigned(L,4,1,sex)||!bagLuaUnsigned(L,5,1,enabled))return result(L,-2);
+    BagTuningValues values;
+    if(enabled){
+        float* fields[]={&values.left,&values.inset,&values.up,&values.pitch,&values.roll,&values.yaw,&values.scale};
+        for(int i=0;i<7;++i){
+            if(!isNumber(L,6+i))return result(L,-2);
+            const double value=toNumber(L,6+i);
+            if(!std::isfinite(value)||value<(i<3?-1:i<6?-180:25)||value>(i<3?1:i<6?180:200))return result(L,-2);
+            *fields[i]=static_cast<float>(value);
+        }
+        unsigned motion=0;if(!bagLuaUnsigned(L,13,1,motion))return result(L,-2);
+        values.motion=motion==1;
+    }
+    Player player;if(!snapshot(player))return result(L,-1);
+    const auto guid=player.guid;std::uintptr_t parent=player.model;
+    if(token){
+        parent=0;for(const auto& entry:previews.entries)
+            if(entry.token==token&&entry.guid==guid&&entry.status==1)parent=entry.model;
+    }else if(player.display!=player.native)return result(L,-1);
+    auto* context=weaponContext(parent);
+    if(context&&(context->guid!=guid||context->token!=token))return result(L,-1);
+    if(!context)return result(L,enabled?-1:1);
+    if(!context->bags[slot-1].model)return result(L,enabled?-1:1);
+    auto& fit=context->bags[slot-1].fits[(race-1)*2+sex];
+    if(fit.enabled==(enabled==1)&&(!enabled||fit.values==values))return result(L,1);
+    fit.enabled=enabled==1;if(enabled)fit.values=values;++fit.revision;
+    return result(L,1);
 }

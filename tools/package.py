@@ -19,8 +19,22 @@ dll = addon / 'Installation instructions/SaureksCloset.dll'
 assert dll.read_bytes() == (root / 'native/SaureksCloset.dll').read_bytes(), 'Bundled DLL differs from the current build'
 artwork = json.loads((addon / 'ARTWORK.json').read_text())
 assert {p.name for p in (addon / 'Textures').iterdir()} == {e['texture'] for e in artwork} | {'ASSETS-LICENSE'}
+for icon in re.findall(r'icon="([^"]+)"', (addon / 'BagCatalog.lua').read_text()):
+    name = icon.rsplit('\\', 1)[-1]
+    assert name in {e['texture'] for e in artwork}, 'Unlisted bag icon: ' + name
+    assert (addon / 'Textures' / name).is_file(), 'Missing bag icon: ' + name
 assert (addon / 'LICENSE').read_bytes() == (root / 'LICENSE').read_bytes()
 assert (addon / 'ASSETS-LICENSE').read_bytes() == (root / 'ASSETS-LICENSE').read_bytes()
+bags = json.loads((root / 'native/BAG-ASSETS.json').read_text())
+assert bags['schema'] == 2
+bag_files = {'ASSETS-LICENSE'}
+for bag in bags['bags']:
+    for field, checksum in [('model', 'model_sha256'), ('texture', 'blp_sha256')]:
+        name = bag[field]
+        assert Path(name).name == name, 'Bag manifest must contain basenames only'
+        assert hashlib.sha256((addon / 'Models' / name).read_bytes()).hexdigest() == bag[checksum], name
+        bag_files.add(name)
+assert {p.name for p in (addon / 'Models').iterdir() if p.is_file()} == bag_files
 
 # Keep only the installable addon, its existing documentation/screenshots and DLL.
 # Build metadata stays in the repository. Never rewrite the user's README.
@@ -34,7 +48,7 @@ for p in addon.rglob('*'):
     elif relative.parts[0] == 'Screenshots':
         include = p.suffix.lower() in ('.png', '.gif') or p.name == 'ASSETS-LICENSE'
     elif relative.parts[0] == 'Models':
-        include = p.name in ('DarkSchoolbag.m2', 'DarkSchoolbag.blp', 'ASSETS-LICENSE')
+        include = p.name in bag_files
     elif relative.parts[0] == 'Installation instructions':
         include = p.suffix.lower() in ('.txt', '.dll')
     else:

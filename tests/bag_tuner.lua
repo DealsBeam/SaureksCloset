@@ -106,4 +106,18 @@ assert(string.find(exported,'\\u0001',1,true) and not string.find(exported,"nan"
 WriteFile=function() error("writer unavailable") end
 assert(V:ExportBagTunerFits()==exported)
 local output=assert(io.open((os.getenv("TMPDIR") or "/tmp").."/saureks-bag-tuner-test.json","w"));output:write(exported);output:close()
+-- Empty bag slots are model-selection targets, never the legacy bag profile.
+-- Programmatic calls must obey the same disabled state as the empty tuner UI.
+local draftsBefore=copy(V.bagTunerDrafts);local callsBefore=calls
+V.bagTunerWindow={emptySlot=3}
+V.MultiBagRendererAvailable=function() return true end
+local empty=V:GetBagTunerState()
+assert(not empty.available and empty.emptySlot==3 and empty.key=="empty:3" and not next(empty.values))
+assert(empty.status=="" and not V:SetBagTunerValue("up",.7) and not V:SaveBagTunerFit())
+assert(not V:ResetBagTunerFit() and not V:LoadBagTunerFit() and not V:ResetBagTunerField("up"))
+assert(calls==callsBefore)
+for key,values in pairs(draftsBefore) do
+    for field,value in pairs(values) do assert(V.bagTunerDrafts[key][field]==value) end
+end
+V.bagTunerWindow=nil;V.MultiBagRendererAvailable=nil
 print("PASS: bag tuner live dispatch, fit identity, validation, defaults, pause, persistence, individual field reset/load, retries and JSON export")

@@ -221,6 +221,8 @@ dofile("addon/SaureksCloset/WeaponData.lua")
 dofile("addon/SaureksCloset/Core.lua")
 dofile("addon/SaureksCloset/Updates.lua")
 dofile("addon/SaureksCloset/Weaponry.lua")
+dofile("addon/SaureksCloset/BagCatalog.lua")
+dofile("addon/SaureksCloset/Bags.lua")
 dofile("addon/SaureksCloset/Body.lua")
 dofile("addon/SaureksCloset/BagTuner.lua")
 dofile("addon/SaureksCloset/Preview.lua")
@@ -487,7 +489,7 @@ for _,slot in ipairs(V.weaponOrder) do
 end
 click(V.weaponOptionsButton);V:SetTab("bags")
 check(not V.weaponOptions:IsShown() and not V.weaponOptionsButton:IsVisible(),"Other wardrobe pages hide the options window and reopen button")
-check(V.model:IsVisible() and V.pagesByName.bags:IsVisible() and not V.slotButtons[101]:IsVisible() and V.wardrobeSelectorLabel:GetText()=="Bags","Bags has its own page and retains the character preview")
+check(not V.model:IsVisible() and V.pagesByName.bags:IsVisible() and not V.slotButtons[101]:IsVisible() and V.wardrobeSelectorLabel:GetText()=="Bags","Bags has its own full-width list page")
 V:SetTab("outfits");V:SetTab("character")
 check(V.tab=="bags","Wardrobe remembers the Bags section")
 click(V.wardrobeSelector);click(getglobal("DropDownList1Button5"))
@@ -533,13 +535,24 @@ click(V.rows[1]);check(V.draft and V.draft.id==unusedID,"Unused equipment can st
 click(V.commitButton);check(VanityStudioCharacter.selected[1]==unusedID,"Unused equipment can still be applied")
 V:Select(1,previousHead);V:Refresh()
 check(not V.selectionLabel and V.commitButton:GetText()=="Apply Appearance","Item browser uses the Apply Appearance action")
-check(V.commitButton.point[5]==V.enabledButton.point[5] and V.commitButton.point[4]+V.commitButton:GetWidth()==V.enabledButton.point[4]+V.enabledButton:GetWidth(),"Apply Appearance aligns with the main wardrobe Toggle button at the upper right")
-check(V.hideHigherLevelCheckbox:GetParent()==V.search:GetParent() and V.resultsLabel:GetParent()==V.search:GetParent(),"Checkbox and result count belong to the search/filter box")
+check(V.search:GetParent()==V.browser and V.search.point[5]==-44 and V.search.point[4]>=80 and V.search.point[4]+V.search:GetWidth()+5<=341,"Search uses the wide header area and clears the portrait")
+check(V.commitButton.point[5]==-405 and V.commitButton.point[4]+V.commitButton:GetWidth()==338,"Apply Appearance keeps its right alignment above the lower trim")
+check(V.hideHigherLevelCheckbox:GetParent()==V.resultsLabel:GetParent() and V.resultsLabel:GetParent()~=V.search:GetParent(),"Checkbox and result count remain in the compact filter box")
 check(V.hideHigherLevelCheckbox.point[5]-V.hideHigherLevelCheckbox:GetHeight()/2==V.resultsLabel.point[5]-V.resultsLabel:GetHeight()/2,"Checkbox and result count share a row")
 check(V.hideHigherLevelLabel.point[4]+V.hideHigherLevelLabel:GetWidth()<V.resultsLabel.point[4],"Checkbox label clears the right-aligned count")
 check(-V.hideHigherLevelCheckbox.point[5]>=-V.qualityButton:GetParent().point[5]+V.qualityButton:GetParent():GetHeight(),"Checkbox row sits below both dropdowns")
-check(-V.rows[1]:GetParent().point[5]>=-V.search:GetParent().point[5]+V.search:GetParent():GetHeight() and -V.rows[1]:GetParent().point[5]+V.rows[1]:GetParent():GetHeight()==428,"Raised results tile leaves a three-pixel gap above the pane bottom")
-check(-V.rows[8].point[5]+V.rows[8]:GetHeight()==V.rows[1]:GetParent():GetHeight()-4,"Item rows retain their original four-pixel interior padding")
+check(-V.rows[1]:GetParent().point[5]>=-V.resultsLabel:GetParent().point[5]+V.resultsLabel:GetParent():GetHeight(),"Expanded results tile clears the filters")
+do
+    local list=V.rows[1]:GetParent()
+    local listBottom=-list.point[5]+list:GetHeight()
+    -- Native button atlas has one transparent top row, and the character
+    -- background's inner lower trim begins at y=430 across the button width.
+    local artTop=-V.commitButton.point[5]+1
+    local artBottom=-V.commitButton.point[5]+V.commitButton:GetHeight()
+    check(listBottom==403 and V.visibleItemRows==9,"Centering Apply preserves nine complete item rows")
+    check(artTop-listBottom==3 and 430-artBottom==3,"Visible Apply artwork is centered with equal clearance from the list and actual window trim")
+end
+check(-V.rows[9].point[5]+V.rows[9]:GetHeight()==V.rows[1]:GetParent():GetHeight()-4,"Nine item rows retain their original four-pixel interior padding")
 check(V.resultsLabel.point[4]+V.resultsLabel:GetWidth()==V.resultsLabel:GetParent():GetWidth()-14,"Result count is inset from the panel's right edge")
 check(-V.scrollRailBottom.point[5]+V.scrollRailBottom:GetHeight()==V.rows[1]:GetParent():GetHeight()-4,"Scrollbar bottom cap reaches the bottom inset of the pane")
 check(-V.scroll.point[5]+V.scroll:GetHeight()==-V.scrollRailBottom.point[5]+4 and -V.scroll.point[5]+V.scroll:GetHeight()+16==-V.scrollRailBottom.point[5]+V.scrollRailBottom:GetHeight()-4,"Native 16px down arrow is centered within the bottom cap")
@@ -597,7 +610,7 @@ V:CloseBrowser();V:SetTab("armor");V:OpenBrowser(1)
 playerLevel=15;V:RefreshList()
 check(V.slotButtons[1].icon.texture==priorIcon and V.slotButtons[1].selected.blend=="ADD","Slot selection preserves the image under an additive highlight")
 check(V.browser:IsVisible() and GetDoublewideFrame()==V.frame,"Slot opens neighboring window and reserves both columns")
-check(table.getn(V.rows)==8,"Scrollable rows initialized")
+check(table.getn(V.rows)==9,"Nine scrollable rows initialized")
 local selected=VanityStudioCharacter.selected[1];local count=table.getn(calls)
 click(V.rows[1])
 local draft=V.rows[1].item[1]
@@ -1101,13 +1114,9 @@ end
 V:ClearAll();V:SetEnabled(true);V:SetTab("weaponry")
 do
     V:SetTab("bags")
-    check(table.getn(V.bagSlots)==7 and not V.bagSlots[1].disabled,"Bags exposes five back and two hip positions")
-    for i=2,7 do check(V.bagSlots[i].disabled,"Only Top Left is implemented") end
-    check(V.bagDescription:GetText()=="Bag appearance customization is not available yet.","Bags preserves the requested description")
-    check(V.bagSlots[1]:GetParent().point[5] < V.bagDescription.point[5]-V.bagDescription:GetHeight(),"Bag slots are below the description")
-    click(V.bagSlots[1]);check(menuEntries[1].text=="None" and menuEntries[2].text=="Runecloth Bag","Top Left offers the first bag and removal")
-    check(V.bagSlots[1].selected:IsShown(),"The bag slot highlights while its menu is open")
-    CloseDropDownMenus();check(not V.bagSlots[1].selected:IsShown(),"Dismissing the bag menu clears its highlight")
+    check(table.getn(V.bagRows)==5,"Bags exposes five fixed slots")
+    check(V.bagRows and table.getn(V.bagRows)==5 and not V.addBagButton,"Bags always shows five customizable slots")
+    -- Full picker, deletion, mount and tuner interaction lives in bags_list_ui.lua.
     local oldRenderer=testedRenderer;testedRenderer=30501
     check(not V:SelectBackBag(1) and not VanityStudioCharacter.weapons.backBag,"Old DLL cannot silently accept a bag")
     testedRenderer=oldRenderer

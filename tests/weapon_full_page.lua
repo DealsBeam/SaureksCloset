@@ -3,6 +3,8 @@
 table.getn=table.getn or function(t) return #t end
 math.mod=math.mod or math.fmod
 VanityStudio={slotButtons={},slotNames={},index={}}
+-- Header geometry below exercises the enabled Save button's pressed artwork.
+function VanityStudio:HasUnsavedLookChanges() return true end
 VanityStudioCharacter={enabled=true,weapons={independent=true,carriedEnabled=false}}
 SaureksClosetSetWeapons=function() return true end
 SaureksClosetRendererVersion=function() return 30704 end
@@ -43,7 +45,7 @@ local function estimatedTextWidth(text,fontSize)
     return string.len(text or "")*(fontSize or 10)*.5
 end
 function methods:GetWidth()
-    if self.kind=="FontString" and self.width==0 then return estimatedTextWidth(self.text,self.fontSize) end
+    if self.kind=="FontString" and (not self.width or self.width==0) then return estimatedTextWidth(self.text,self.fontSize) end
     return self.width
 end
 function methods:GetHeight() return self.height end
@@ -80,7 +82,7 @@ function methods:SetChecked(value) self.checked=value end
 function methods:GetChecked() return self.checked end
 function methods:Enable() self.enabled=true end
 function methods:Disable() self.enabled=false end
-for _,key in ipairs({"SetVertexColor","SetTexCoord","SetBlendMode","SetPushedTexture","SetDisabledTexture","SetHighlightTexture","SetHitRectInsets","SetBackdropBorderColor","SetBackdropColor","EnableMouse","SetFrameStrata"}) do
+for _,key in ipairs({"SetVertexColor","SetTexCoord","SetBlendMode","SetPushedTexture","SetDisabledTexture","SetHighlightTexture","SetHitRectInsets","SetBackdropBorderColor","SetBackdropColor","EnableMouse","SetFrameStrata","RegisterForDrag"}) do
     methods[key]=function() end
 end
 GameTooltip={Hide=function() end,Show=function() end,SetOwner=function() end,
@@ -148,6 +150,7 @@ local function rect(n)
     local a=n.anchor
     local x,y,w,h=rect(a and a[2] or n.parent)
     local nw,nh=n.width or w,n.height or h
+    if n.kind=="FontString" and (not n.width or n.width==0) then nw=n:GetWidth() end
     if a then
         local rx,ry=pointOffset(a[3],w,h)
         local ax,ay=pointOffset(a[1],nw,nh)
@@ -276,7 +279,7 @@ for slot=101,110 do
     end
 end
 local sx,sy,sw,sh=rect(V.wardrobeSelectorBox)
-assert(sw==176 and V.wardrobeSelectorBox.anchor[4]==-12,"Only Weaponry should use the corrected wide navigation selector")
+assert(sw==176 and V.wardrobeSelectorBox.anchor[4]==-12,"Weaponry should use the corrected wide navigation selector")
 local spans={}
 for _,n in ipairs(frames) do
     if n.parent==V.wardrobeSelectorBox and n.kind=="Texture" and n:IsVisible() and n.texture and n.texture[1]=="Interface\\PaperDoll\\UI-PaperDoll-SlotBackground" then
@@ -287,13 +290,16 @@ table.sort(spans,function(a,b) return a[1]<b[1] end)
 local edge=4
 for _,span in ipairs(spans) do assert(span[1]<=edge,"The wide navigation texture has a visible gap");edge=math.max(edge,span[2]) end
 assert(edge==172,"Native stone texture must fill the widened Weaponry selector")
-for _,pageName in ipairs({"armor","body","bags","exposure"}) do
+for _,pageName in ipairs({"armor","body","exposure"}) do
     V:SetTab(pageName)
     assert(V.wardrobeSelectorBox.width==106 and V.wardrobeSelectorBox.anchor[4]==-44,"Weaponry must not change another page's navigation")
     for _,fill in ipairs(V.weaponSelectorFill) do assert(not fill:IsVisible(),"Weaponry-only texture extended another page") end
 end
 V:SetTab("body")
 assert(V.bodyPreviewFade:IsVisible() and #V.bodyPreviewFade.strips==32,"Body preview needs a soft lower fade")
+assert(V.wardrobeViewShadowFrame:IsVisible() and
+    V.wardrobeViewShadowFrame:GetFrameLevel()>V.bodyPreviewFade:GetFrameLevel(),
+    "The Body fade must not paint over the wardrobe frame shadow")
 local backdropX,_,backdropWidth=rect(V.wardrobeBackgrounds[1])
 local fadeX,_,fadeWidth=rect(V.bodyPreviewFade)
 assert(fadeX==backdropX and fadeWidth==backdropWidth,"Body fade must span the whole scenic area, including behind the options")
@@ -336,8 +342,10 @@ VanityStudioCharacter.enabled=false
 V:FrameBodyPreview(V.model)
 assert(V.model.position[3]<-2,"Disabling a Gnome override must frame the native human body")
 VanityStudioCharacter.enabled=true;VanityStudioCharacter.body=nil
-V:SetTab("bags")
+V:SetTab("exposure")
 assert(not V.bodyPreviewFade:IsVisible(),"Other pages must not inherit the Body fade")
+assert(V.wardrobeViewShadowFrame:GetFrameLevel()<V.bodyPreviewFade:GetFrameLevel(),
+    "Other pages must retain their original shadow layering")
 for _,model in ipairs({V.model,V.previewBuffer}) do
     assert(model.anchor[4]==96 and model.anchor[5]==-86 and model.width==244 and model.height==340 and model:GetModelScale()==1.37 and model.position[3]==.2,
         "The other pages must recover their original model framing")

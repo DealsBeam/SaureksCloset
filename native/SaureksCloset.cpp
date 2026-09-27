@@ -11,6 +11,8 @@
 #include "Appearance.h"
 #include "PreviewState.h"
 #include "WeaponryProbe.h"
+#include "ArmorInspection.h"
+#include "EquipmentUI.h"
 #include "BagAssetFiles.h"
 using Register=void (__fastcall *)(const char*,std::uintptr_t);
 using GetPlayer=std::uint64_t (__fastcall *)();
@@ -24,12 +26,14 @@ using SetMatrix=void (__thiscall *)(void*,const float*);
 using IsNumber=bool (__fastcall *)(void*,int);
 using ToNumber=double (__fastcall *)(void*,int);
 using PushNumber=void (__fastcall *)(void*,double);
+using VisibleItem=void* (__thiscall *)(void*,int);
 static Register registerOriginal=nullptr;
 static GetName nameOriginal=nullptr;
 static InitComponent initOriginal=nullptr;
 static Changed changedOriginal=nullptr;
 static Transform transformOriginal=nullptr;
 static SetMatrix matrixOriginal=nullptr;
+static VisibleItem visibleItemOriginal=nullptr;
 static const auto getPlayer=reinterpret_cast<GetPlayer>(0x468550);
 static const auto objectPtr=reinterpret_cast<ObjectPtr>(0x468460);
 static const auto updateDisplay=reinterpret_cast<Refresh>(0x60ABE0);
@@ -85,6 +89,14 @@ static bool snapshot(Player& p){
 }
 static bool applies(const Player& p){
     return state.enabled&&state.guid==p.guid&&p.display==p.native&&nativeModel(p.native);
+}
+static void* __fastcall visibleItemHook(void* unit,void*,int slot){
+    const auto caller=reinterpret_cast<std::uintptr_t>(__builtin_return_address(0));
+    std::uintptr_t localPlayer=0;
+    if(equipmentUICaller(caller,slot)){
+        Player p;if(snapshot(p))localPlayer=p.unit;
+    }
+    return equipmentUIVisibleItem(unit,slot,caller,localPlayer,visibleItemOriginal);
 }
 static const char* __fastcall nameHook(void* unit,void*){
     Player p;
@@ -257,6 +269,21 @@ static int __fastcall inspect(void* L){
     for(auto v:values)pushNumber(L,v);
     return sizeof(values)/sizeof(values[0]);
 }
+static int __fastcall inspectArmorLua(void* L){
+    if(!isNumber(L,1)||!isNumber(L,2))return result(L,-2);
+    const double slot=toNumber(L,1),display=toNumber(L,2);
+    if(!std::isfinite(slot)||slot<1||slot>19||slot!=static_cast<unsigned>(slot)||
+       !std::isfinite(display)||display<0||display>2147483647||display!=static_cast<unsigned>(display))return result(L,-2);
+    Player p;
+    if(!snapshot(p)||!p.model||!p.component||p.display!=p.native||!nativeModel(p.native))return result(L,-1);
+    ArmorInspection inspection;
+    const auto reader=[](std::uint32_t address,auto& value){return read(address,value);};
+    const int status=inspectArmor(static_cast<std::uint32_t>(p.component),static_cast<std::uint32_t>(p.model),
+        static_cast<unsigned>(slot),static_cast<unsigned>(display),reader,inspection);
+    const double values[]={double(status),double(inspection.display),double(inspection.dirty),double(inspection.attachmentMask)};
+    for(auto value:values)pushNumber(L,value);
+    return sizeof(values)/sizeof(values[0]);
+}
 static int __fastcall beginPreview(void* L){
     if(previewArmed)return result(L,-4);
     unsigned values[7];
@@ -328,7 +355,7 @@ static int __fastcall weaponryProbe(void* L){
 #include "ProjectileRenderer.h"
 #include "UpdateChecker.h"
 #include "VoiceRenderer.h"
-static int __fastcall version(void* L){return result(L,30711);}
+static int __fastcall version(void* L){return result(L,30901);}
 static void __fastcall registerHook(const char* name,std::uintptr_t function){
     registerOriginal(name,function);
     if(name&&std::strcmp(name,"SetUnitVisibleItemID")==0){
@@ -341,9 +368,12 @@ static void __fastcall registerHook(const char* name,std::uintptr_t function){
         registerOriginal("SaureksClosetPreviewStatus",reinterpret_cast<std::uintptr_t>(&previewStatus));
         registerOriginal("SaureksClosetInspectPreview",reinterpret_cast<std::uintptr_t>(&inspectPreview));
         registerOriginal("SaureksClosetInspect",reinterpret_cast<std::uintptr_t>(&inspect));
+        registerOriginal("SaureksClosetInspectArmor",reinterpret_cast<std::uintptr_t>(&inspectArmorLua));
         registerOriginal("SaureksClosetSetWeapons",reinterpret_cast<std::uintptr_t>(&setWeapons));
         registerOriginal("SaureksClosetGetBagFitDefaults",reinterpret_cast<std::uintptr_t>(&getBagFitDefaults));
         registerOriginal("SaureksClosetSetBagFit",reinterpret_cast<std::uintptr_t>(&setBagFit));
+        registerOriginal("SaureksClosetSetBags",reinterpret_cast<std::uintptr_t>(&setBags));
+        registerOriginal("SaureksClosetSetBagInstanceFit",reinterpret_cast<std::uintptr_t>(&setBagInstanceFit));
         registerOriginal("SaureksClosetWeaponryProbe",reinterpret_cast<std::uintptr_t>(&weaponryProbe));
         registerOriginal("SaureksClosetSetUpdateChecks",reinterpret_cast<std::uintptr_t>(&setUpdateChecks));
         registerOriginal("SaureksClosetStartUpdateCheck",reinterpret_cast<std::uintptr_t>(&startUpdateCheck));
@@ -362,6 +392,7 @@ BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID){
     if(!compatible()||MH_Initialize()!=MH_OK)return TRUE;
     struct Hook {std::uintptr_t address;void* replacement;void** original;};
     Hook hooks[]={
+        {0x5F0D60,reinterpret_cast<void*>(&visibleItemHook),reinterpret_cast<void**>(&visibleItemOriginal)},
         {0x60D450,reinterpret_cast<void*>(&unitSpellVisualHook),reinterpret_cast<void**>(&unitSpellVisualOriginal)},
         {0x60A3D0,reinterpret_cast<void*>(&unitMissileHook),reinterpret_cast<void**>(&unitMissileOriginal)},
         {0x5FE2F0,reinterpret_cast<void*>(&unitAnimationHook),reinterpret_cast<void**>(&unitAnimationOriginal)},

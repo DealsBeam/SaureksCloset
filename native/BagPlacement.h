@@ -12,7 +12,8 @@
 static bool bagPlacement(const std::array<float,16>& renderedBack,const std::array<float,16>& renderedTorso,
                          const std::array<float,16>& local,const std::array<float,3>& anchor,std::array<float,16>& out,
                          unsigned bag=1,BagMotion* motion=nullptr,std::uint32_t now=0,std::uintptr_t model=0,bool running=false,
-                         const BagMatrix* modelToRender=nullptr,const BagMatrix* worldToRender=nullptr,float airLiftTarget=0){
+                         const BagMatrix* modelToRender=nullptr,const BagMatrix* worldToRender=nullptr,float airLiftTarget=0,
+                         const BagTuningEntry* instanceFits=nullptr,unsigned baseMount=0,unsigned identity=0){
     BagMatrix back=renderedBack,torso=renderedTorso,renderToModel{};
     if(modelToRender){
         if(!bagAffineInverse(*modelToRender,renderToModel))return false;
@@ -33,10 +34,11 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
     }
     if(!fit)return false;
     const auto fitIndex=static_cast<unsigned>(fit-bagFits);
-    const auto mount=bagMount(bag,fitIndex/2+1,fitIndex%2);
+    const auto mount=baseMount?BagMount{}:bagMount(bag,fitIndex/2+1,fitIndex%2);
     BagTuningValues tuning;
-    if(!bagTuningDefaults(bag,fitIndex/2+1,fitIndex%2,tuning))return false;
-    const auto& override=bagTuningEntries[fitIndex];
+    if(instanceFits){if(!bagInstanceTuningDefaults(baseMount,fitIndex/2+1,fitIndex%2,tuning))return false;}
+    else if(!bagTuningDefaults(bag,fitIndex/2+1,fitIndex%2,tuning))return false;
+    const auto& override=instanceFits?instanceFits[fitIndex]:bagTuningEntries[fitIndex];
     if(override.enabled)tuning=override.values;
     // Size changes leave the fitted center of the back panel in place.
     const float size=bagModelScale*(tuning.scale/100.f);
@@ -67,7 +69,7 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
     for(unsigned axis=0;axis<3;++axis){
         for(unsigned col=0;col<3;++col)for(unsigned k=0;k<3;++k)
             target[col*4+axis]+=orientation[k*4+axis]*rotation[col*3+k]*size;
-        target[12+axis]=back[12+axis]+fit->depth*torso[axis]+tuning.inset*orientation[axis]
+        target[12+axis]=back[12+axis]+(baseMount?0:fit->depth)*torso[axis]+tuning.inset*orientation[axis]
             +tuning.left*orientation[4+axis]+tuning.up*orientation[8+axis]
             -mount.raisedOrigin*target[8+axis];
     }
@@ -84,13 +86,15 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
         if(tuning.motion&&directionReady){
             const auto fitted=target;
             smoothBagMotion(*motion,target,size,now,model,
-                bag*32+fitIndex+(override.revision<<6),running,mount.raisedOrigin,worldUp,&verticalMeasure,airLiftTarget);
+                (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,mount.raisedOrigin,worldUp,&verticalMeasure,airLiftTarget);
             if(motion->airborneWeight>.000001f){
                 BagMatrix worldToModel{{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}},modelToWorld;
                 if(modelToRender&&worldToRender)worldToModel=bagMatrixProduct(renderToModel,*worldToRender);
                 if(bagAffineInverse(worldToModel,modelToWorld))
                     liftBagInGravity(target,fitted,modelToWorld,worldToModel,
-                        {{-orientation[0],-orientation[1],-orientation[2]}},motion->airborneWeight);
+                        {{baseMount?(baseMount==1?orientation[4]:-orientation[4]):-orientation[0],
+                          baseMount?(baseMount==1?orientation[5]:-orientation[5]):-orientation[1],
+                          baseMount?(baseMount==1?orientation[6]:-orientation[6]):-orientation[2]}},motion->airborneWeight);
             }
         }
         else if(motion->ready)*motion={};

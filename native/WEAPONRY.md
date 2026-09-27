@@ -1,4 +1,4 @@
-# Independent weapon placements — 3.4.0 / renderer 30400
+# Independent weapon placements — 3.9.1 / renderer 30901
 
 ## Implemented renderer
 
@@ -197,3 +197,69 @@ independent. Unknown geometry or invalid matrices retain native placement.
 These measurements establish a conservative neutral fit, not collision
 avoidance in every animated pose. Live visual confirmation needs a full game
 restart with this DLL.
+
+
+## 3.8.0 independent bags
+
+The new list owns eight stable instance IDs, separate from inventory and weapon
+slots. `WeaponContext::bags[0..7]` contains each model, initial mount, retained
+child, motion history, and 16 private race/sex fit entries. An outfit preview and
+the world never share mutable fit entries. Repeating a model in several slots
+creates distinct child objects; changing or removing one releases only that
+child. Native weapon clears and lookups skip every owned bag, including bags
+sharing an attachment with a sword or shield. A child moved to the wrong point
+on the same character is reseated without reloading. If another parent acquires
+it, only Closet's retained reference is released; its foreign attachment stays
+intact and a replacement is created. Readiness repair preserves tuning and the
+fit-cache generation.
+
+`SaureksClosetSetBags(token, model1, mount1, ... model8, mount8)` accepts exactly
+17 numeric arguments. Model 0 clears that instance and requires mount 0.
+Other model IDs must exist in generated `BagCatalog.h`. Mount 0 uses back point
+28; mounts 1 and 2 use the actual left/right hip points 32 and 33. All 32 hip
+anchors and their parent bones were checked against the installed build-5875
+character files; `tests/bag_hip_fixtures.h` preserves only numeric metadata and
+`tools/audit_bag_hips.py` regenerates it. Hip bags follow the hip bone, face
+outwards, and start lower/smaller than back bags. Tuning still uses the active
+model's back anchor to identify its race and sex, rather than the player's
+original body. Generated meshes share the legacy bag orientation and height.
+
+The setter returns `(status, generation)` for accepted selections, with status
+1 complete or 0 still loading. Invalid/not-ready requests retain the existing
+negative status convention. The generation is unique to a native context and
+changes whenever an instance model or mount changes. A successful empty
+selection with no remaining context returns `(1, 0)`. Lua may cache fit writes
+only for a complete selection with the same token, generation, and fit values;
+a recreated body/preview therefore always receives its fits again.
+
+`SaureksClosetSetBagInstanceFit(token, instance, race, sex, enabled, left, inset,
+up, pitch, roll, yaw, scale, motion)` has 13 arguments for enabled fits and needs
+only the first five to clear a fit. Instances are 1–8, races 1–8, sexes 0–1,
+and enabled/motion are 0 or 1. Offsets remain bounded to -1..1, rotations to
+-180..180 degrees, and scale to 25..200 percent. Validation precedes mutations,
+including validation before narrowing doubles to floats. Identical setters
+preserve revisions and motion. A model/mount change clears that instance's fits,
+so callers must resend persisted fits after the generation changes.
+
+`SaureksClosetGetBagFitDefaults(201..208, race, sex, mount)` returns the existing
+status plus seven-value default tuple. The legacy global SetBagFit API accepts
+only bag 1 and weapon targets 101–107. Legacy SetWeapons bag argument 1 and the
+new eight-instance API are mutually exclusive, preserving old callers without
+allowing a ninth bag. SetWeapons with legacy bag argument 0 preserves the new
+instances and also retries attachment/loading readiness.
+
+The stock clone factory recursively calls its hooked entry at 0x70EB85 for each
+attachment before returning the parent model. The hook records each exact bag
+child's instance and fit snapshot, so two copies of an identical mesh retain
+different positions in CharacterModelFrame and DressUpModel. Copies use their
+own animated bones/view and no world motion history. Weak identities are
+removed by the existing destruction hook; no clone is retained by Closet.
+Equipment slot icons, tooltips, item APIs, and inventory fields are untouched.
+
+Validation includes the existing weapon/legacy-bag simulator and new checks for
+eight duplicate meshes, all race/sex hip anchors, independent deletion, mount
+changes, asynchronous readiness/error-model recovery, private preview fits,
+exact child clone identity, generation invalidation, and invalid argument
+atomicity. The simulator passes AddressSanitizer and UndefinedBehaviorSanitizer;
+the Windows i386 DLL builds with warnings as errors. In-game rendered appearance
+still requires a full client restart to load the rebuilt native DLL.

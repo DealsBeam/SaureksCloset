@@ -186,16 +186,20 @@
   },
   {
     "texture": "ArmorShadowTR.tga",
-    "source": "tools/build_slot_shadow.py",
+    "source": "User-edited ArmorShadowTR.tga",
     "size": [
       256,
       256
     ],
-    "bytes": 262188,
-    "sha256": "b42c454ba5a4a13f9204b0c0bf34ebc67a854950521df033b5001291b3a8f0f8",
-    "generated": true,
-    "source_sha256": "d9c962f1abdc5ca3ec90d81adce7424a234f69c46a6f187506aee7256a75e220",
-    "layout": "Separate contact and soft shadow of unmodified v3.4.34 armor art"
+    "bytes": 39456,
+    "sha256": "841c301604e556a7b838d2ea853311e986e933fa399e478bc9356d9e560aeb4d",
+    "generated": false,
+    "source_sha256": "841c301604e556a7b838d2ea853311e986e933fa399e478bc9356d9e560aeb4d",
+    "layout": "User-edited contact and soft shadow; upper-left ornament shadow removed from top-right armor panel",
+    "encoding": "RGBA8 RLE lossless",
+    "gpu_base_bytes": 262144,
+    "original_generator": "tools/build_slot_shadow.py",
+    "original_sha256": "b42c454ba5a4a13f9204b0c0bf34ebc67a854950521df033b5001291b3a8f0f8"
   },
   {
     "texture": "ArmorShadowBL.tga",
@@ -394,5 +398,224 @@
     "bytes": 4140,
     "sha256": "5bf89a1c9cc2fc8eccdaf9c96c57da2a39ce74c271abe408cdd8dc05ffcaabb6",
     "source": "Original procedural gear icon"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon1.png",
+    "source_sha256": "973b9745c3c09538785e19a65e1437b50ebef5f5e259176bbe692291cde6fb73",
+    "reference": "assets/bag-icons/references/BagIcon1.png",
+    "reference_sha256": "44f952e28a59b036ab9b180ce39f35b94b4c1c48b37b31147e0af49c8cf4dcdb",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon1.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "21709d21dd7de1033bf6afb2511ac7b04c441719247c95b42a02fc6fa1fc5043"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon2.png",
+    "source_sha256": "1551b246f5f018b678588e963aad9511766c6a1e1bca68ed66fdd99cb19cb1e7",
+    "reference": "assets/bag-icons/references/BagIcon2.png",
+    "reference_sha256": "bc49beed16e3e9683acda0df9e988f883f6e317114076cb1e9680ae5200ebbd3",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon2.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "1ff8d38fa67b309076ea0d1f50649557b818e6edaa36f0aa6df105250d55f29d"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon5.png",
+    "source_sha256": "44ec4bdbc6f04e45509338787bfa3bd2fd4d75d141c88e0c4274da2275348550",
+    "reference": "assets/bag-icons/references/BagIcon5.png",
+    "reference_sha256": "f9cfa1ce7877311ae46097078ce6015ba70b053d987521594a44a2d8550d096b",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon5.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "28ef6d5410cecd92f4416bb1047f37cc415cd131da969c363eb52a8b0b220dd1"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon7.png",
+    "source_sha256": "69a2d0268386b384c20897160cc6f08d162529deffea67f4db3a76f96af0697b",
+    "reference": "assets/bag-icons/references/BagIcon7.png",
+    "reference_sha256": "891c7c1de83a1fad9b2fad4848f125a85996d47263662020ef08fca09c82e16b",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon7.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "00452a439b3d96cd464d469ed78313f28f799a3e1a85c14cd37295a4b89ab5bf"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon8.png",
+    "source_sha256": "713f07e6c14dc1c37c9afcc28a928369ecdbbbc0ea7daba5d4ba57f55516b94e",
+    "reference": "assets/bag-icons/references/BagIcon8.png",
+    "reference_sha256": "b79d0abe2ab5df398520e42f9f43e9ff75627d8e466c8ccdc6bb05bb4281e5ff",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon8.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "b3b1c16633ec9ca6550f2f28b4469cdb29ad963aea8959285f146ad47cd40a53"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon10.png",
+    "source_sha256": "b06443e245872ad61b28a5d6a5625631dd23fc5370e766e8bb8d21b059c73951",
+    "reference": "assets/bag-icons/references/BagIcon10.png",
+    "reference_sha256": "48c0cebc614af951f9fe26412cd87710adf77079d295e175ba38275557131c77",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon10.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "0c7aa6b4a172218e89281250ab9784575e33012a5c5a8af22978817816c97fee"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon11.png",
+    "source_sha256": "65facfbf441493a3b34d92a38b0f58e3e886d81df0d31e1740e88b2e03cc5138",
+    "reference": "assets/bag-icons/references/BagIcon11.png",
+    "reference_sha256": "0c8af6e2e1e134058f65f5a37256945cc4787ab135bc3bfcae1f5dcf00b4672a",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon11.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "918f6433e1b9934925ed2711cc3d116351463daf959653d1fcbfecf0064d391d"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon12.png",
+    "source_sha256": "5d4cf172f9477126bb11d0e528358abd4e9f23f43ddbc7da46a0f1c088ee660d",
+    "reference": "assets/bag-icons/references/BagIcon12.png",
+    "reference_sha256": "c43a9f621f4d93431e3a7ba83f9e082e0b18c1a3c171d95a11e525826cb16a60",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon12.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "38bd415e6962d6a7e2c091443e8ff6cb9c84dd5156e43935a946ae7e41f3e1ca"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon13.png",
+    "source_sha256": "9fb420a5268bbdffd70455461f3efcae54f92f42ddf0ce8080eeda11ec7f965d",
+    "reference": "assets/bag-icons/references/BagIcon13.png",
+    "reference_sha256": "3e89f900223d2a65661af6d46673f46dd6bdc36089d250f159bfa7f4fea3ce29",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon13.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "5f1f099f5ef4e923e51f83da62aa8ae894163328113522bbf1a2409d9c85ce12"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon14.png",
+    "source_sha256": "7f6c911460ef1bb5bc88e4c320d2dcf495e94c6eebe4ba4e4d5ba0b4d44e582f",
+    "reference": "assets/bag-icons/references/BagIcon14.png",
+    "reference_sha256": "19d813f7330e9b9ad45a002079cb69204829b618ab7c22ff4daf513cfc2f09b6",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon14.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "f326b49086febb004a19d1c4de871112feae4b5e1fe652bc6b20a2c2b947a2d4"
+  },
+  {
+    "source": "assets/bag-icons/BagIcon16.png",
+    "source_sha256": "26a07a1fb381aad8ac4e48b5f30b8ed28b6bc99a90b8c3ae1bb8c4d265acc9c8",
+    "reference": "assets/bag-icons/references/BagIcon16.png",
+    "reference_sha256": "0fe70f90caaaa977de0203c318c9af444bcd162d724d726d3cbcfb24abdbc3c4",
+    "provenance": "assets/bag-icons/generation.json",
+    "generated": true,
+    "texture": "BagIcon16.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "9c2790348a5f7c5fcbe6f9c19a2aa004ba5daf378a8390e951de96d62babc016"
+  },
+  {
+    "source": "assets/body-arrow/gold-arrow-cutout.png",
+    "source_sha256": "3cc8e4b2d97ab952a7e4c56c10a811c5c65f8ea2156a4da7c70e6172fea156f5",
+    "reference": "assets/body-arrow/dropdown-source.png",
+    "reference_sha256": "b5ebc0a5bd5f604302662624353238c4a0e9918ccebf9d32f7c06841acf9d024",
+    "provenance": "Transparent cutout made with the built-in image tool from the native dropdown arrow; surrounding button removed. UI texture coordinates provide left/right rotations.",
+    "generated": true,
+    "texture": "BodyArrow.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "faba642dfb4c92953b8f4e0e88dc401bfbf5eb4bcd6fe8b5c40d0efab1cf96af"
+  },
+  {
+    "source": "assets/body-arrow/chevron.svg",
+    "source_sha256": "9b10265a80fe4f92465e2d881c5ff0fd45bab835e9484cebd0dbe1ef59c0a271",
+    "provenance": "Original vector chevron: rounded two-pixel gold stroke with a dark edge, rendered by librsvg. The UI mirrors the same glyph for exact left/right alignment.",
+    "generated": true,
+    "texture": "BodyChevron.tga",
+    "size": [
+      64,
+      64
+    ],
+    "bytes": 16428,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 16384,
+    "sha256": "458743213426e29d9e47a1fe1c6514759f543cb9bc839b563923a4d269437ed6"
   }
 ]

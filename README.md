@@ -2,6 +2,8 @@
 
 # Saurek's Closet - A Damn Fine 1.12 Transmog
 
+**Release 3.9.1 · Addon and DLL 3.9.1**
+
 Supported on Linux, Windows, and Mac
 
 <a href="https://discord.gg/6mfxCdNbM6"><img src="https://invidget.switchblade.xyz/6mfxCdNbM6" alt="Join Saurek's Addons on Discord — online and total member counts" width="430" height="110"></a>
@@ -32,7 +34,7 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 
 ### Visible Bags with dynamic physics
 
-- 15 bag models with soft and hard physics systems based on the bag type. Equip and precisely position up to 3 bags on the back and 2 on the hips.
+- Five fixed bag slots, eight model choices, and four Cloth Pouch colors. Choose each bag by its icon, then tune it on the back or either hip.
 - Bags stay consistently sized for realism. A Runecloth bag on a gnome would take up their whole back, versus a Tauren that could comfortably fit 4 or more. In the bag precision tuner you can adjust their size if you want to.
 - Hard physics: Hard leather bags rock and bounce realistically, as if they had weight. Jumping/falling causes the bag to tilt and fly up in the air realistically.
 - Soft physics: cloth bags are simulated with different sized cubes jostling around inside the bags in Blender, using motion vectors extracted from all race and gender combos performing different animations. The resulting bag movements are recoded and baked into the game. This makes it appear as if advanced source engine style physics are utilized with no runtime cost.
@@ -122,11 +124,11 @@ py -3 install.py "C:\Games\World of Warcraft"
 
 1. Click the minimap button or type **`/closet`**.
 2. In **Wardrobe → Outfit**, click an armor slot and choose **Custom Item**, **Hide Slot**, or **Passthrough**.
-3. Search or filter the item list. Click an item to preview it, then choose **Activate Item** to apply it.
+3. Search or filter the item list. Click an item to preview it, then choose **Apply Appearance** to apply it.
 4. Use the bottom dropdown to visit **Body** or **Weaponry** and continue customizing.
-5. Open **Saved Looks** and select **(Unsaved)**. Enter a name and click **Save new**, or use **Save to existing outfit** to update a favorite.
+5. Click **Save** to update your active saved look. If there is no active saved look, Save opens **Saved Looks** so you can enter a name and click **Save New**.
 
-Open any saved look to preview, rename, delete, or activate it. The green eye marks the active look. The dropdown at the top of the window lets you switch saved looks quickly, and **Toggle** turns your local appearance overrides on or off.
+Open any saved look to preview, rename, delete, or activate it. The green eye marks the active look. Changes display as **Name (Edited)** until saved. **Save** is greyed out when there are no unsaved edits; rotating the preview does not count as an edit. Switching looks warns before discarding unsaved changes. The dropdown at the top of the window lets you switch saved looks quickly. Right-click the minimap button and choose **Toggle Addon** to turn local appearances on or off. Click and drag in either character preview to rotate the model.
 
 ### How weapon placements work
 

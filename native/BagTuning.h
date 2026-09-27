@@ -19,10 +19,23 @@ inline std::array<BagTuningEntry,16> bagTuningEntries{};
 inline std::array<std::array<BagTuningEntry,16>,7> weaponTuningEntries{};
 inline std::uint64_t bagTuningOwner=0;
 inline bool bagTuningKey(unsigned bag,unsigned race,unsigned sex) {
-    return (bag==1||(bag>=101&&bag<=107))&&race>=1&&race<=8&&sex<=1;
+    return (bag==1||(bag>=101&&bag<=107)||(bag>=201&&bag<=208))&&race>=1&&race<=8&&sex<=1;
+}
+inline bool bagInstanceTuningDefaults(unsigned mount,unsigned race,unsigned sex,BagTuningValues& out) {
+    if(mount>2||race<1||race>8||sex>1)return false;
+    const auto contact=bagMount(1,race,sex);
+    out={};
+    if(mount==0){
+        out.inset=contact.backInward;out.up=-.03f+contact.backUp;
+        out.pitch=contact.inwardDegrees;out.scale=85;
+    }else{
+        out.up=-.15f;out.yaw=mount==1?-90.f:90.f;out.scale=70;
+    }
+    return true;
 }
 inline bool bagTuningDefaults(unsigned bag,unsigned race,unsigned sex,BagTuningValues& out) {
     if(!bagTuningKey(bag,race,sex))return false;
+    if(bag>=201)return bagInstanceTuningDefaults(0,race,sex,out);
     if(bag!=1){out={};out.scale=100;return true;}
     const auto mount=bagMount(bag,race,sex);
     out={bagModelScale*.28f,mount.backInward,bagModelScale*.20f-.15f+mount.backUp,
@@ -37,7 +50,7 @@ inline bool bagTuningValid(const BagTuningValues& values) {
     return std::isfinite(values.scale)&&values.scale>=25&&values.scale<=200;
 }
 inline bool bagTuningSet(unsigned bag,unsigned race,unsigned sex,bool enabled,const BagTuningValues& values={}) {
-    if(!bagTuningKey(bag,race,sex)||(enabled&&!bagTuningValid(values)))return false;
+    if(!bagTuningKey(bag,race,sex)||bag>=201||(enabled&&!bagTuningValid(values)))return false;
     auto& entry=bag==1?bagTuningEntries[(race-1)*2+sex]:weaponTuningEntries[bag-101][(race-1)*2+sex];
     if(entry.enabled==enabled&&(!enabled||entry.values==values))return true;
     entry.enabled=enabled;

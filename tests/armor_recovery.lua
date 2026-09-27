@@ -7,6 +7,22 @@ local now,dead,ghost,exists=0,false,false,true
 local native,fields,visible,calls,missing,equipped={},{},{},{},{},{}
 local reloads,queuedEvents=0,0
 local repairCosts={}
+local inspectorCalls,inspectorUnavailable,inspectorStatus={},{},{}
+-- Catalog displays deliberately differ from item IDs. The renderer observes
+-- the rendered appearance, independently of Lua's cache and helper fields.
+local itemDisplays={[100]=1100,[200]=1200,[300]=1300,[400]=1400,[999]=1999,[6566]=2566}
+local function inspectArmor(slot,expectedDisplay)
+    inspectorCalls[slot]=(inspectorCalls[slot] or 0)+1
+    assert(type(expectedDisplay)=="number","inspector needs a display ID")
+    if inspectorStatus[slot]~=nil then return inspectorStatus[slot] end
+    if (inspectorUnavailable[slot] or 0)>0 then
+        inspectorUnavailable[slot]=inspectorUnavailable[slot]-1
+        return -1
+    end
+    local appearance=visible[slot]
+    local display=(appearance==0 or appearance==nil or appearance=="empty") and 0 or itemDisplays[appearance]
+    return display==expectedDisplay and 1 or 0
+end
 local frames={}
 function GetTime() return now end
 function UnitIsDeadOrGhost() return dead end
@@ -68,6 +84,12 @@ local function reset()
     V.forceArmorSync=nil;V.needsSync=nil;V.bodyError=nil
     V.armorLifeState="alive";V.refreshArmorDisplay=nil
     V.armorCheckAt=nil;V.armorCheckRefreshDisplay=nil;V.armorCheckReason=nil;V.ignoreArmorModelEventsUntil=nil;V.armorHistory=nil;V.draft=nil;V.worldDraftActive=nil
+    inspectorCalls={};inspectorUnavailable={};inspectorStatus={}
+    V.armorVisualRetries=nil;V.armorVisualMismatch=nil
+    SaureksClosetInspectArmor=inspectArmor
+    ShowingHelm=nil;ShowingCloak=nil
+    V.index={};V.slots={}
+    for id,display in pairs(itemDisplays) do V.index[id]={[1]=id,[8]=display} end
     VanityStudioCharacter={enabled=true,selected={[5]=100,[7]=200,[1]=0,[3]=300},
         managed={},weapons={backBag=1},activeOutfit="Saved",outfitDirty=nil}
     V:Sync();V:CheckArmorRepairs();calls={};reloads=0;now=2
@@ -241,6 +263,41 @@ test("all hidden armor gets one texture refresh pair",function()
     dead=true;ghost=true;fire("PLAYER_ALIVE");tick(.5);restored()
     assert(reloads==2);quiet()
 end)
+test("hidden unequipped shoulders use a cached compatible refresh item",function()
+    equipped={};VanityStudioCharacter.selected={[3]=0}
+    V.slots[3]={V.index[300]}
+    V:Sync();calls={};reloads=0
+    visible[3]=6566
+    assert(fields[3]==0 and not equipped[3])
+    fire("UNIT_MODEL_CHANGED","player");tick(1)
+    restored();assert(reloads==2,"an all-hidden unequipped appearance had no usable refresh pulse")
+    local pulsed=false
+    for _,call in ipairs(calls) do
+        assert(call.slot==3 and (call.id==0 or call.id==300),
+            "refresh pulse used an incompatible item or released an empty slot")
+        if call.id==300 then pulsed=true end
+    end
+    assert(pulsed and calls[#calls].id==0 and fields[3]==0,
+        "the compatible refresh item was not restored to hidden before the update completed")
+    quiet()
+end)
+test("hidden unequipped shoulders wait for a cached refresh item before manual Retry",function()
+    equipped={};VanityStudioCharacter.selected={[3]=0}
+    V.slots[3]={V.index[300]};missing[300]=true
+    V:Sync();calls={};reloads=0;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(3)
+    assert(reloads==0 and visible[3]==6566 and fields[3]==0,
+        "missing refresh item data caused an invalid or ineffective model pulse")
+    for _,call in ipairs(calls) do assert(call.slot==3 and call.id==0,"an uncached item reached the armor setter") end
+    quiet()
+    missing[300]=nil;calls={}
+    V:Retry();tick(1);restored()
+    assert(reloads==2,"manual Retry did not recover after the compatible item became cached")
+    local pulsed=false
+    for _,call in ipairs(calls) do if call.slot==3 and call.id==300 then pulsed=true end end
+    assert(pulsed and fields[3]==0 and VanityStudioCharacter.selected[3]==0)
+    quiet()
+end)
 test("resurrecting without releasing repairs textures",function()
     dead=true;fire("PLAYER_DEAD");tick(.5)
     dead=false;rebuildTextures();fire("PLAYER_ALIVE");tick(.5);restored();quiet()
@@ -312,6 +369,208 @@ for _,mode in ipairs({"sync","async"}) do
         noTemporaryArmorChanges();quiet()
     end)
 end
+-- Render-only failures leave the helper field correct. Reasserting its same
+-- value cannot repair them; only a positive native mismatch may request the
+-- existing single refresh pair.
+for _,fixture in ipairs({
+    {name="hidden head",slot=1,id=0},
+    {name="hidden shoulders",slot=3,id=0},
+    {name="custom shoulders",slot=3,id=300},
+    {name="custom chest",slot=5,id=100},
+    {name="hidden cloak",slot=15,id=0},
+    {name="custom cloak",slot=15,id=400},
+}) do
+    test("combat repairs rendered-only "..fixture.name,function()
+        equipped[fixture.slot]=6566
+        VanityStudioCharacter.selected[fixture.slot]=fixture.id
+        V:Sync();calls={};reloads=0
+        visible[fixture.slot]=6566
+        assert(fields[fixture.slot]==fixture.id and V.applied[fixture.slot]==fixture.id,
+            "fixture must retain the requested helper field and Lua cache")
+        fire("UNIT_MODEL_CHANGED","player");tick(1)
+        restored()
+        assert((inspectorCalls[fixture.slot] or 0)>0,"renderer did not inspect the affected slot")
+        assert(reloads==2,"a rendered-only mismatch needs exactly one refresh pair")
+        quiet()
+    end)
+end
+for _,mode in ipairs({"sync","async"}) do
+    test(mode.." rendered-only combat bursts refresh all stale slots once",function()
+        emitSetterEvents=mode
+        visible[1]=6566;visible[3]=6566;visible[5]=6566
+        for slot,id in pairs(VanityStudioCharacter.selected) do assert(fields[slot]==id) end
+        for i=1,20 do fire("UNIT_MODEL_CHANGED","player");fire("UNIT_INVENTORY_CHANGED","player") end
+        tick(2);restored()
+        assert(reloads==2,"multiple stale slots or setter echoes caused more than one refresh pair")
+        calls={}
+        for cycle=1,8 do
+            fire("UNIT_MODEL_CHANGED","player");fire("UNIT_INVENTORY_CHANGED","player");tick(1.5)
+        end
+        assert(reloads==2,"drawing weapons after recovery rebuilt healthy armor")
+        noTemporaryArmorChanges();quiet()
+    end)
+end
+test("render inspection uses catalog display IDs rather than item IDs",function()
+    fire("UNIT_MODEL_CHANGED","player");tick(1)
+    assert((inspectorCalls[3] or 0)>0,"the healthy shoulder was not inspected")
+    assert(reloads==0,"item/display ID confusion caused a false mismatch")
+    restored();noTemporaryArmorChanges();quiet()
+end)
+test("stock hidden helm and cloak do not falsely repair positive selections",function()
+    VanityStudioCharacter.selected[1]=100;VanityStudioCharacter.selected[15]=400
+    V:Sync();calls={};reloads=0;inspectorCalls={}
+    ShowingHelm=function() return false end
+    ShowingCloak=function() return false end
+    visible[1]=0;visible[15]=0
+    assert(fields[1]==100 and fields[15]==400)
+    fire("UNIT_MODEL_CHANGED","player");fire("UNIT_INVENTORY_CHANGED","player");tick(1)
+    assert(not inspectorCalls[1] and not inspectorCalls[15],
+        "intentionally omitted positive helm or cloak was treated as a render failure")
+    assert(reloads==0 and visible[1]==0 and visible[15]==0,
+        "stock hide flags caused a blind refresh or revealed hidden armor")
+    assert(VanityStudioCharacter.selected[1]==100 and VanityStudioCharacter.selected[15]==400)
+    noTemporaryArmorChanges();quiet()
+end)
+test("explicit hidden helm and cloak still repair while stock toggles are false",function()
+    VanityStudioCharacter.selected[1]=0;VanityStudioCharacter.selected[15]=0
+    V:Sync();calls={};reloads=0;inspectorCalls={}
+    ShowingHelm=function() return false end
+    ShowingCloak=function() return false end
+    visible[1]=6566;visible[15]=6566
+    assert(fields[1]==0 and fields[15]==0)
+    fire("UNIT_MODEL_CHANGED","player");tick(1)
+    assert((inspectorCalls[1] or 0)>0 and (inspectorCalls[15] or 0)>0,
+        "stock hide flags suppressed verification of an explicit hidden appearance")
+    restored();assert(reloads==2,"explicit hidden appearances were not repaired in one refresh pair")
+    quiet()
+end)
+test("equipment changes repair rendered-only shoulders after scheduled sync",function()
+    equipped[3]=6566;VanityStudioCharacter.selected[3]=0
+    V:Sync();calls={};reloads=0
+    visible[3]=6566
+    equipped[5]="replacement chest"
+    assert(fields[3]==0 and fields[5]==100)
+    fire("UNIT_INVENTORY_CHANGED","player");tick(1)
+    restored()
+    assert(equipped[5]=="replacement chest" and VanityStudioCharacter.selected[5]==100)
+    assert((inspectorCalls[3] or 0)>0 and reloads==2,
+        "equipment-driven sync did not repair the separately stale shoulder appearance")
+    quiet()
+end)
+test("world entry repairs rendered-only shoulders after applied caches reset",function()
+    equipped[3]=6566;VanityStudioCharacter.selected[3]=0
+    V:Sync();calls={};reloads=0
+    visible[3]=6566;V.applied={};V.armorEquipment=nil
+    assert(fields[3]==0)
+    fire("PLAYER_ENTERING_WORLD");tick(1)
+    restored()
+    assert((inspectorCalls[3] or 0)>0 and reloads==2,
+        "world-entry cache reset hid the rendered-only shoulder failure")
+    quiet()
+end)
+test("missing renderer armor API retains legacy field repair",function()
+    SaureksClosetInspectArmor=nil
+    visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(1)
+    assert(visible[3]==6566 and fields[3]==300 and reloads==0,
+        "an absent inspection API must not cause a blind model refresh")
+    visible[5]=6566;fields[5]=6566
+    fire("UNIT_INVENTORY_CHANGED","player");tick(1)
+    restored();assert(reloads==1,"legacy field repair stopped working")
+    quiet()
+end)
+test("unknown catalog appearances do not trigger blind render repair",function()
+    VanityStudioCharacter.selected[3]=7000;V:Sync();calls={};reloads=0
+    visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(3)
+    assert(not inspectorCalls[3],"unknown item has no verified display ID to inspect")
+    assert(reloads==0 and visible[3]==6566)
+    quiet()
+end)
+test("temporary render unavailability retries and repairs without another event",function()
+    inspectorUnavailable[3]=2;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(.5)
+    assert(reloads==0 and visible[3]==6566,"unavailable rendering was treated as a mismatch")
+    tick(2);restored()
+    assert(inspectorCalls[3]>=3 and reloads==2,"a ready renderer did not repair the delayed mismatch")
+    quiet()
+end)
+test("persistent render unavailability stops after bounded retries",function()
+    inspectorStatus[3]=-1;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(5)
+    local attempts=inspectorCalls[3] or 0
+    assert(attempts>1 and attempts<=5,"renderer unavailability did not use a bounded retry window: "..attempts)
+    assert(reloads==0 and visible[3]==6566,"unavailability forced an unverified refresh")
+    tick(20)
+    assert(inspectorCalls[3]==attempts,"render inspection continued polling indefinitely")
+    inspectorStatus[3]=nil
+    fire("UNIT_MODEL_CHANGED","player");tick(1);restored()
+    assert(reloads==2,"a new event did not re-arm inspection after the previous timeout")
+    quiet()
+end)
+test("invalid renderer inspection does not loop or rebuild",function()
+    inspectorStatus[3]=-2;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(5)
+    local attempts=inspectorCalls[3] or 0
+    assert(attempts==1 and reloads==0,"invalid inspection caused retries or a blind refresh")
+    tick(20);assert(inspectorCalls[3]==attempts)
+    quiet()
+end)
+for _,mode in ipairs({"sync","async"}) do
+    test(mode.." persistent render mismatch receives only one refresh attempt",function()
+        emitSetterEvents=mode;inspectorStatus[3]=0
+        fire("UNIT_MODEL_CHANGED","player");tick(5)
+        assert(reloads==2,"an uncorrected render mismatch retriggered its own repair")
+        for cycle=1,6 do fire("UNIT_MODEL_CHANGED","player");tick(1) end
+        assert(reloads==2,"external events repeatedly rebuilt the same persistent mismatch")
+        local attempts=inspectorCalls[3]
+        quiet();assert(inspectorCalls[3]==attempts,"persistent mismatch kept a background worker alive")
+        inspectorStatus[3]=nil
+        fire("UNIT_MODEL_CHANGED","player");tick(1);restored()
+        visible[3]=6566
+        fire("UNIT_MODEL_CHANGED","player");tick(1);restored()
+        assert(reloads==4,"a later independent failure was suppressed after healthy rendering returned")
+        quiet()
+    end)
+end
+test("manual Retry rearms a suppressed persistent render failure",function()
+    inspectorStatus[3]=0
+    fire("UNIT_MODEL_CHANGED","player");tick(3)
+    assert(reloads==2);quiet()
+    inspectorStatus[3]=nil;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(1)
+    assert(reloads==2 and visible[3]==6566,
+        "the persistent failure should remain suppressed until healthy or explicitly retried")
+    V:Retry();tick(1);restored()
+    assert(reloads==4,"manual Retry did not authorize one new render-recovery attempt")
+    quiet()
+end)
+test("disabled appearance ignores rendered-only combat failures",function()
+    V:SetEnabled(false);calls={};reloads=0;inspectorCalls={}
+    visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");fire("UNIT_INVENTORY_CHANGED","player");tick(5)
+    assert(next(inspectorCalls)==nil and #calls==0 and reloads==0)
+    assert(visible[3]==6566 and not VanityStudioCharacter.enabled)
+    quiet()
+end)
+test("disabling appearance cancels deferred inspection through sync and manual Retry",function()
+    inspectorStatus[3]=-1;visible[3]=6566
+    fire("UNIT_MODEL_CHANGED","player");tick(.5)
+    assert((inspectorCalls[3] or 0)>0 and V.armorCheckAt,
+        "fixture did not schedule a deferred render check")
+    V:SetEnabled(false);calls={};reloads=0;inspectorCalls={}
+    tick(3)
+    V:CheckArmorVisuals("disabled direct check")
+    V.needsSync=true;tick(1)
+    fire("PLAYER_ENTERING_WORLD");tick(1)
+    equipped[5]="disabled replacement chest"
+    fire("UNIT_INVENTORY_CHANGED","player");tick(1)
+    V:Retry();tick(1)
+    assert(next(inspectorCalls)==nil and #calls==0 and reloads==0,
+        "disabled appearance inspected or reapplied armor through a deferred or scheduled path")
+    assert(not VanityStudioCharacter.enabled and VanityStudioCharacter.selected[3]==300)
+    quiet()
+end)
 -- Use the real browser transaction methods with Core's timed refresh handler.
 dofile(string.gsub(corePath,"Core.lua$","Preview.lua"))
 V.UpdatePreviewLoading=noop
@@ -319,6 +578,33 @@ V.InvalidatePreviewModel=noop
 V.RefreshPreviewForModelEvent=noop
 V.Compatible=function() return true end
 V.IsWeaponPosition=function(_,slot) return slot>=101 end
+for _,choice in ipairs({999,0,"passthrough"}) do
+    test("rendered-only repair preserves armor browser choice "..tostring(choice),function()
+        local id=choice;if choice=="passthrough" then id=nil end
+        assert(V:DraftSlot(5,id));local draft=V.draft
+        calls={};reloads=0;visible[3]=6566
+        fire("UNIT_MODEL_CHANGED","player");tick(1)
+        assert(visible[3]==300 and visible[5]==(id or equipped[5]))
+        assert(V.draft==draft and V.worldDraftActive==5 and VanityStudioCharacter.selected[5]==100)
+        for _,call in ipairs(calls) do
+            assert(call.slot~=5 or call.id~=100,"render repair flashed the saved item through a live draft")
+        end
+        assert(reloads==2,"draft preservation introduced extra full-model rebuilds")
+        quiet();V:CancelDraft();assert(visible[5]==100)
+    end)
+end
+for _,choice in ipairs({999,0}) do
+    test("render inspection recovers effective armor draft "..choice,function()
+        assert(V:DraftSlot(3,choice));local draft=V.draft
+        calls={};reloads=0;visible[3]=6566
+        assert(fields[3]==choice and VanityStudioCharacter.selected[3]==300)
+        fire("UNIT_MODEL_CHANGED","player");tick(1)
+        assert(visible[3]==choice and V.draft==draft and VanityStudioCharacter.selected[3]==300,
+            "inspection ignored or replaced the browser's effective appearance")
+        for _,call in ipairs(calls) do assert(call.slot~=3 or call.id~=300,"saved shoulders flashed during draft recovery") end
+        assert(reloads==2);quiet();V:CancelDraft();assert(visible[3]==300)
+    end)
+end
 for _,choice in ipairs({999,0,"passthrough"}) do
     test("model and inventory events preserve armor browser choice "..tostring(choice),function()
         local id=choice

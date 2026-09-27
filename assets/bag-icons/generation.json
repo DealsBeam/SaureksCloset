@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "method": "Built-in image_gen tool; one generation per bag using supplied model review image as subject reference.",
+  "created": "2026-09-27",
+  "icons": [
+    {
+      "id": 1,
+      "name": "Runecloth Bag",
+      "source": "BagIcon1.png",
+      "reference": "references/BagIcon1.png",
+      "reference_origin": "Dark_Schoolbag_03_Classic_Texture/review/01_hero.png",
+      "source_sha256": "973b9745c3c09538785e19a65e1437b50ebef5f5e259176bbe692291cde6fb73",
+      "reference_sha256": "44f952e28a59b036ab9b180ce39f35b94b4c1c48b37b31147e0af49c8cf4dcdb",
+      "generated_output_id": "exec-f2862963-a800-41f8-98d1-230117c889bb.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Runecloth Bag/Dark Schoolbag: tall slim rectangular deep muted reddish-chocolate brown leather satchel, large long rectangular flap covering most of front, TWO small short buckle straps near the flap's lower corners, silver buckles and silver studs. Preserve this exact slim hard-edged silhouette and long flap; no extra pockets or long straps."
+    },
+    {
+      "id": 2,
+      "name": "Amber Traveler Even Strap",
+      "source": "BagIcon2.png",
+      "reference": "references/BagIcon2.png",
+      "reference_origin": "production_bags/Amber_Traveler_04_Even_Strap/review/01_hero.png",
+      "source_sha256": "1551b246f5f018b678588e963aad9511766c6a1e1bca68ed66fdd99cb19cb1e7",
+      "reference_sha256": "bc49beed16e3e9683acda0df9e988f883f6e317114076cb1e9680ae5200ebbd3",
+      "generated_output_id": "exec-c9f69cc5-81b3-4b26-830c-17f654d48b15.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Amber Traveler Even Strap: square amber-brown leather backpack, large curved flap, ONE vertical strap extending over the full flap, silver angular buckle, broad stitched front pouch and two thin cords. Preserve this exact construction."
+    },
+    {
+      "id": 5,
+      "name": "Milloo No Zippers",
+      "source": "BagIcon5.png",
+      "reference": "references/BagIcon5.png",
+      "reference_origin": "production_bags/Milloo_No_Zippers/review/game_threequarter.png",
+      "source_sha256": "44ec4bdbc6f04e45509338787bfa3bd2fd4d75d141c88e0c4274da2275348550",
+      "reference_sha256": "f9cfa1ce7877311ae46097078ce6015ba70b053d987521594a44a2d8550d096b",
+      "generated_output_id": "exec-43cafb18-ddc0-4795-9a50-53213302e3d2.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Milloo No Zippers: rounded tall brown leather satchel backpack, broad flap, TWO parallel straps with square light brass buckles. Warm russet textured leather, no zippers. Preserve this exact construction."
+    },
+    {
+      "id": 7,
+      "name": "Milloo Smooth Dark Leather",
+      "source": "BagIcon7.png",
+      "reference": "references/BagIcon7.png",
+      "reference_origin": "production_bags/Milloo_Smooth_Dark_Leather/review/game_threequarter.png",
+      "source_sha256": "69a2d0268386b384c20897160cc6f08d162529deffea67f4db3a76f96af0697b",
+      "reference_sha256": "891c7c1de83a1fad9b2fad4848f125a85996d47263662020ef08fca09c82e16b",
+      "generated_output_id": "exec-b3ba3a6b-d53d-4526-8591-fc3114cace36.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Milloo Smooth Dark Leather: rounded tall satchel backpack with broad flap, TWO parallel straps and square pale brass buckles. The leather is deep dark chocolate brown, smooth finish, NOT tan or orange. Preserve the exact reference bag and its dark color."
+    },
+    {
+      "id": 8,
+      "name": "Milloo Smooth Tan Leather",
+      "source": "BagIcon8.png",
+      "reference": "references/BagIcon8.png",
+      "reference_origin": "production_bags/Milloo_Smooth_Tan_Leather/review/game_threequarter.png",
+      "source_sha256": "713f07e6c14dc1c37c9afcc28a928369ecdbbbc0ea7daba5d4ba57f55516b94e",
+      "reference_sha256": "b79d0abe2ab5df398520e42f9f43e9ff75627d8e466c8ccdc6bb05bb4281e5ff",
+      "generated_output_id": "exec-693804b6-d9c5-4e67-b0d8-db60193996f3.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Milloo Smooth Tan Leather: rounded tall satchel backpack with broad flap, TWO parallel straps and square pale brass buckles. The leather is pale warm tan, smooth finish. Preserve the exact reference bag and its pale tan color."
+    },
+    {
+      "id": 10,
+      "name": "Ranger Rucksack",
+      "source": "BagIcon10.png",
+      "reference": "references/BagIcon10.png",
+      "reference_origin": "production_bags/Ranger_Rucksack_02/review/01_hero.png",
+      "source_sha256": "b06443e245872ad61b28a5d6a5625631dd23fc5370e766e8bb8d21b059c73951",
+      "reference_sha256": "48c0cebc614af951f9fe26412cd87710adf77079d295e175ba38275557131c77",
+      "generated_output_id": "exec-1661a51b-1abe-49de-8071-d62c595a206b.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Ranger Rucksack: honey-brown tall rucksack with central brass buckle on main flap, a large buckled lower front pocket and side pockets. Preserve every distinctive pocket and this silhouette."
+    },
+    {
+      "id": 11,
+      "name": "Black Leather Sling",
+      "source": "BagIcon11.png",
+      "reference": "references/BagIcon11.png",
+      "reference_origin": "production_bags/black-leather-sling/review/threequarter.png",
+      "source_sha256": "65facfbf441493a3b34d92a38b0f58e3e886d81df0d31e1740e88b2e03cc5138",
+      "reference_sha256": "0c8af6e2e1e134058f65f5a37256945cc4787ab135bc3bfcae1f5dcf00b4672a",
+      "generated_output_id": "exec-491c09db-98b1-45f0-b5d6-3e45f03029b6.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Black Leather Sling: asymmetrical teardrop black-charcoal leather sling bag with a diagonal warm brown buckle strap, brass hardware, curved zip seam. Preserve the slanted narrow upper shape and curved front-pocket silhouette."
+    },
+    {
+      "id": 12,
+      "name": "Burgundy Cloth Pouch Low",
+      "source": "BagIcon12.png",
+      "reference": "references/BagIcon12.png",
+      "reference_origin": "production_bags/cloth-pouch-color-variants/burgundy/review/front.png",
+      "source_sha256": "5d4cf172f9477126bb11d0e528358abd4e9f23f43ddbc7da46a0f1c088ee660d",
+      "reference_sha256": "c43a9f621f4d93431e3a7ba83f9e082e0b18c1a3c171d95a11e525826cb16a60",
+      "generated_output_id": "exec-31cc2eba-cb3f-4a68-9819-35eb1653e4e5.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Burgundy Cloth Pouch Low: soft rounded cloth pouch with very broad simple flap and dark charcoal drawstrings hanging below the flap, no buckles, straps, pockets or added hardware. Rich muted burgundy fabric color, preserve the source color and proportions."
+    },
+    {
+      "id": 13,
+      "name": "Navy Cloth Pouch Low",
+      "source": "BagIcon13.png",
+      "reference": "references/BagIcon13.png",
+      "reference_origin": "production_bags/cloth-pouch-color-variants/navy/review/front.png",
+      "source_sha256": "9fb420a5268bbdffd70455461f3efcae54f92f42ddf0ce8080eeda11ec7f965d",
+      "reference_sha256": "3e89f900223d2a65661af6d46673f46dd6bdc36089d250f159bfa7f4fea3ce29",
+      "generated_output_id": "exec-0ace4375-9aa7-4954-b141-6be43815f979.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Navy Cloth Pouch Low: soft rounded cloth pouch with very broad simple flap and dark charcoal drawstrings hanging below the flap, no buckles, straps, pockets or added hardware. Muted navy blue fabric color, preserve the source color and proportions."
+    },
+    {
+      "id": 14,
+      "name": "Ochre Cloth Pouch Low",
+      "source": "BagIcon14.png",
+      "reference": "references/BagIcon14.png",
+      "reference_origin": "production_bags/cloth-pouch-color-variants/ochre/review/front.png",
+      "source_sha256": "7f6c911460ef1bb5bc88e4c320d2dcf495e94c6eebe4ba4e4d5ba0b4d44e582f",
+      "reference_sha256": "19d813f7330e9b9ad45a002079cb69204829b618ab7c22ff4daf513cfc2f09b6",
+      "generated_output_id": "exec-7b61fdea-1984-4b3f-9bfd-7245f1da9240.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Ochre Cloth Pouch Low: soft rounded cloth pouch with very broad simple flap and dark charcoal drawstrings hanging below the flap, no buckles, straps, pockets or added hardware. Muted ochre golden fabric color, preserve the source color and proportions."
+    },
+    {
+      "id": 16,
+      "name": "Olive Cloth Pouch Low",
+      "source": "BagIcon16.png",
+      "reference": "references/BagIcon16.png",
+      "reference_origin": "production_bags/olive-cloth-pouch-wow-low/review/front.png",
+      "source_sha256": "26a07a1fb381aad8ac4e48b5f30b8ed28b6bc99a90b8c3ae1bb8c4d265acc9c8",
+      "reference_sha256": "0fe70f90caaaa977de0203c318c9af444bcd162d724d726d3cbcfb24abdbc3c4",
+      "generated_output_id": "exec-07919d6b-32a0-45ab-a56a-84838851284a.png",
+      "prompt": "Use case: stylized-concept. Asset type: custom square inventory item icon for a classic fantasy game addon, ultimately displayed at 32 to 64 pixels. Input image is a strict subject reference: use the actual supplied bag, its exact color, silhouette, flap, straps, hardware and pocket construction. Make ONE original hand-painted game icon, bold restrained brushwork, clean readable chunky shapes, dark creases, warm upper-left highlights and a subtle rim so it reads small. Center the whole bag as a large close-up occupying 86% of the square; slight three-quarter view like the reference. Nearly black warm-brown plain vignette background with subtle halo behind the bag. No lettering, labels, numbers, watermark, border, frame, extra objects or decorations. No invented straps, pockets or fantasy ornaments. Preserve the real reference construction, simplify only surface texture. Olive Cloth Pouch Low: soft rounded cloth pouch with very broad simple flap and dark charcoal drawstrings hanging below the flap, no buckles, straps, pockets or added hardware. Muted olive green fabric color, preserve the source color and proportions."
+    }
+  ]
+}

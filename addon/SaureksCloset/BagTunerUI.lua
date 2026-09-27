@@ -15,6 +15,51 @@ end
 local function displayValue(field,value)
     return string.format("%."..(field.decimals or 2).."f",value or 0)
 end
+local mountNames={back="Back",leftHip="Left hip",rightHip="Right hip"}
+local mountOrder={"back","leftHip","rightHip"}
+function V:PrepareBagTunerSelection(id)
+    local f=self.bagTunerWindow
+    if not f or not f:IsShown() or self.placementTunerBag~=id or not self:BagInstance(id) then return false end
+    for _,row in ipairs(f.rows) do
+        if row.editor.editing then
+            local accepted=self:CommitBagTunerEditor(row.editor);row.editor:ClearFocus()
+            if not accepted then f.invalidInput=nil;return false end
+        end
+    end
+    -- Focus loss can validate the editor before the selector gets its click.
+    -- Leave the bag unchanged on that click when the number was rejected.
+    if f.invalidInput then f.invalidInput=nil;return false end
+    return self.placementTunerBag==id and self:BagInstance(id)~=nil
+end
+function V:CloseBagTunerModelPicker()
+    local f=self.bagTunerWindow
+    if f and f.modelPicker then f.modelPicker:Hide() end
+end
+function V:OpenBagTunerModelPicker()
+    local f=self.bagTunerWindow;local id=self.placementTunerBag
+    if not f or not f.modelPicker then return false end
+    local emptySlot=f.emptySlot
+    if emptySlot then
+        if not f:IsShown() or not self:MultiBagRendererAvailable() or self:BagInSlot(emptySlot) then return false end
+    elseif not self:PrepareBagTunerSelection(id) then return false end
+    local picker=f.modelPicker
+    if picker:IsShown() then picker:Hide();return true end
+    local state=self:GetBagTunerState();local bag=id and self:BagInstance(id)
+    if not emptySlot and (not bag or not state.available) then return false end
+    CloseDropDownMenus();GameTooltip:Hide()
+    picker.bagID=id;picker.emptySlot=emptySlot;picker.targetKey=state.key
+    local current=bag and self:BagModelChoice(bag.model)
+    for _,row in ipairs(picker.rows) do
+        local selected=row.choice==current
+        row.bagID=id;row.emptySlot=emptySlot;row.targetKey=state.key
+        local asset=selected and self.bagCatalogByID[bag.model] or self.bagCatalogByID[row.modelID]
+        row.icon:SetTexture(asset and asset.icon or row.choice.icon)
+        if selected then row.selected:Show();row:SetBackdropBorderColor(1,.82,.25);row.caption:SetTextColor(1,.9,.6)
+        else row.selected:Hide();row:SetBackdropBorderColor(.42,.38,.3);row.caption:SetTextColor(1,1,1) end
+        f.enableControl(row,true)
+    end
+    picker:Show();return true
+end
 function V:CommitBagTunerEditor(editor)
     local f=self.bagTunerWindow
     if not f or f.refreshing or not editor.editing then return true end
@@ -24,7 +69,7 @@ function V:CommitBagTunerEditor(editor)
     editor.editing=nil
     if state.key~=editor.targetKey then
         accepted=false
-        showMessage("The character changed. The unfinished edit was discarded.")
+        showMessage("The placement changed. The unfinished edit was discarded.")
     elseif not value or value~=value or value-value~=0 then
         accepted=false
         showMessage("Enter a number for "..editor.field.label..".")
@@ -42,21 +87,56 @@ function V:RefreshBagTunerUI()
     if not f or f.refreshing then return end
     f.refreshing=true
     local state=self:GetBagTunerState()
+    if self.activeOutfitLabel then self.activeOutfitLabel:SetText(self:ActiveOutfitText()) end
+    if self.RefreshWardrobeSaveButton then self:RefreshWardrobeSaveButton() end
     local available=state.available and true or false
     local targetChanged=f.targetKey~=state.key
     f.targetKey=state.key
     f.target:SetText(state.title or "Bag fitting")
+    local bag=self.placementTunerBag and self:BagInstance(self.placementTunerBag)
+    local emptySlot=f.emptySlot
+    local emptyAvailable=emptySlot and self:MultiBagRendererAvailable() and not self:BagInSlot(emptySlot)
+    if f.modelPicker and f.modelPicker:IsShown() then
+        local wrongTarget=f.modelPicker.targetKey~=state.key
+        if emptySlot then wrongTarget=wrongTarget or not emptyAvailable or f.modelPicker.emptySlot~=emptySlot
+        else wrongTarget=wrongTarget or not available or not bag or f.modelPicker.bagID~=bag.id end
+        if wrongTarget then self:CloseBagTunerModelPicker() end
+    end
+    if bag then
+        f.target:Hide();f.bagSelectors:Show()
+        local model=self:BagModelChoice(bag.model)
+        f.modelCaption:SetText(model and model.name or "Choose a bag")
+        f.mountCaption:SetText(mountNames[bag.mount] or "Back")
+        if model and model.colors then
+            f.colorChoices:Show()
+            for i,swatch in ipairs(f.colorSwatches) do
+                local color=model.colors[i]
+                if color then
+                    swatch.color=color;swatch.modelID=color.id;swatch.bagID=bag.id;swatch:Show()
+                    swatch.fill:SetVertexColor(color.r,color.g,color.b)
+                    if bag.model==color.id then swatch.selectedBorder:Show();swatch.selectedCheck:Show()
+                    else swatch.selectedBorder:Hide();swatch.selectedCheck:Hide() end
+                    f.enableControl(swatch,available)
+                else swatch:Hide();swatch.color=nil;swatch.modelID=nil;swatch.bagID=nil end
+            end
+        else f.colorChoices:Hide() end
+    elseif emptySlot then
+        f.target:Hide();f.bagSelectors:Show();f.colorChoices:Hide()
+        f.modelCaption:SetText("Choose a bag");f.mountCaption:SetText("Back")
+    else f.target:Show();f.bagSelectors:Hide();f.colorChoices:Hide() end
+    f.enableControl(f.modelSelector,(bag and available) or emptyAvailable)
+    f.enableControl(f.mountSelector,bag and available)
     f.status:SetText(f.message or state.status or "")
     f.live:SetChecked(state.enabled)
     f.pause:SetChecked(state.paused)
     f.enableControl(f.live,available)
-    f.enableControl(f.pause,available and state.enabled and state.bag==1)
+    f.enableControl(f.pause,available and state.enabled and (state.bag==1 or (state.bag and state.bag>=201 and state.bag<=208)))
     for _,row in ipairs(f.rows) do
         local e=row.editor
         if targetChanged and e.editing then
             e.editing=nil;e.cancelCommit=true;e:ClearFocus();e.cancelCommit=nil
         end
-        if not e.editing then e:SetText(displayValue(e.field,(state.values or {})[e.field.key])) end
+        if not e.editing then e:SetText(emptySlot and "" or displayValue(e.field,(state.values or {})[e.field.key])) end
         e:EnableMouse(available);e:SetAlpha(available and 1 or .45)
         row.caption:SetAlpha(available and 1 or .45)
         f.enableControl(row.minus,available);f.enableControl(row.plus,available);f.enableControl(row.reset,available)
@@ -65,7 +145,6 @@ function V:RefreshBagTunerUI()
     f.enableControl(f.load,available and state.saved)
     f.enableControl(f.reset,available)
     f.enableControl(f.export,available)
-    f.savedState:SetText(state.dirty and "Unsaved changes" or (state.saved and "Saved fit" or "Default fit"))
     f.refreshing=nil
 end
 function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
@@ -80,11 +159,15 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
     f.close:SetScript("OnClick",function() V.bagTunerWindow:Hide() end)
     f:SetScript("OnHide",function()
         GameTooltip:Hide()
+        V:CloseBagTunerModelPicker()
+        if this.mountMenu and UIDROPDOWNMENU_OPEN_MENU==this.mountMenu:GetName() then CloseDropDownMenus() end
         for _,row in ipairs(this.rows) do
             if row.editor.editing then V:CommitBagTunerEditor(row.editor);row.editor:ClearFocus() end
         end
         this.invalidInput=nil;this.invalidEditor=nil;this.resetHover=nil
+        this.emptySlot=nil
         V:SetBagTunerPaused(false)
+        if V.RefreshBagsPage then V:RefreshBagsPage() end
     end)
     f:SetScript("OnUpdate",function()
         local elapsed=arg1 or 0
@@ -97,15 +180,162 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         this.elapsed=0;V:RefreshBagTunerUI()
     end)
     table.insert(UISpecialFrames,f:GetName())
-    f.target=label(f,"",31,81,302,30)
+    f.target=label(f,"",31,81,302,43)
     f.target:SetFont("Fonts\\FRIZQT__.TTF",12)
-    f.status=label(f,"",31,112,302,26,true)
+    f.bagSelectors=CreateFrame("Frame",nil,f);f.bagSelectors:SetAllPoints(f)
+    local function selector(kind,title,name,y,width,help)
+        local caption=label(f.bagSelectors,title,31,y+3,41,20,true)
+        caption:SetFont("Fonts\\FRIZQT__.TTF",11);caption:SetJustifyV("MIDDLE")
+        local control=section(f.bagSelectors,74,y,width,24,true,"Button",.75)
+        -- Native dropdowns require a named anchor; the button itself can stay
+        -- anonymous so it shares the existing section border/highlight style.
+        local anchor=CreateFrame("Frame",name,control);anchor:SetAllPoints(control)
+        local text=label(control,"",8,2,width-35,20,true)
+        text:SetFont("Fonts\\FRIZQT__.TTF",11);text:SetJustifyV("MIDDLE")
+        local icon=control:CreateTexture(nil,"ARTWORK")
+        icon:SetPoint("TOPRIGHT",control,"TOPRIGHT",-1,-1);icon:SetWidth(22);icon:SetHeight(22)
+        icon:SetTexture("Interface\\Buttons\\UI-ScrollBar-ScrollDownButton-Up")
+        control:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
+        tooltip(control,help)
+        if kind=="model" then
+            control:SetScript("OnClick",function() V:OpenBagTunerModelPicker() end)
+            return control,text
+        end
+        local menu=CreateFrame("Frame",name.."Menu",f);menu.displayMode="MENU";menu:Hide()
+        menu.initialize=function()
+            local bag=V.placementTunerBag and V:BagInstance(V.placementTunerBag)
+            if not bag then return end
+            local bagID=bag.id
+            local function select(value)
+                if not V:PrepareBagTunerSelection(bagID) then return end
+                local ok=V:SetBagMount(bagID,value,true)
+                if ok then
+                    f.message=nil;f.messageTime=nil
+                    CloseDropDownMenus();V:RefreshBagTunerUI()
+                end
+            end
+            for _,mount in ipairs(mountOrder) do
+                UIDropDownMenu_AddButton({text=mountNames[mount],checked=bag.mount==mount and 1 or nil,
+                    arg1=mount,func=select})
+            end
+        end
+        control:SetScript("OnClick",function()
+            V:CloseBagTunerModelPicker()
+            local id=V.placementTunerBag
+            if not V:PrepareBagTunerSelection(id) then return end
+            GameTooltip:Hide();ToggleDropDownMenu(1,nil,menu,name,0,0)
+        end)
+        return control,text,menu
+    end
+    f.modelSelector,f.modelCaption=selector("model","Model","SaureksClosetBagTunerModel",76,257,
+        "Choose this bag's model. Your current position, rotation and size are kept.")
+    f.mountSelector,f.mountCaption,f.mountMenu=selector("mount","Start","SaureksClosetBagTunerMount",104,105,
+        "Start on the Back, Left hip or Right hip. Changing the starting position resets this bag's tuned fits.")
+    local picker=CreateFrame("Frame","SaureksClosetBagTunerModelPicker",f);f.modelPicker=picker
+    picker:SetPoint("TOPLEFT",f,"TOPLEFT",27,-102);picker:SetWidth(310);picker:SetHeight(270)
+    picker:SetFrameStrata("DIALOG");picker:SetFrameLevel(f:GetFrameLevel()+40);picker:EnableMouse(true)
+    picker:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",
+        edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=12,
+        insets={left=3,right=3,top=3,bottom=3}})
+    picker:SetBackdropColor(.035,.032,.025,1);picker:SetBackdropBorderColor(.68,.59,.39)
+    -- The native dialog finish is only 60% opaque. Put it over a solid base
+    -- so the tuner's numeric controls cannot show through this visual menu.
+    local finish=CreateFrame("Frame",nil,picker)
+    finish:SetPoint("TOPLEFT",picker,"TOPLEFT",5,-5);finish:SetWidth(300);finish:SetHeight(260)
+    finish:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",tile=true,tileSize=16})
+    finish:SetBackdropColor(1,1,1,1)
+    picker.rows={};picker:Hide()
+    picker:SetScript("OnHide",function()
+        this.bagID=nil;this.emptySlot=nil;this.targetKey=nil;GameTooltip:Hide()
+        for _,row in ipairs(this.rows) do row.bagID=nil;row.emptySlot=nil;row.targetKey=nil end
+    end)
+    -- In 1.12 Escape closes UIMenus before ordinary windows. Register the
+    -- popover there so dismissing it keeps the placement tuner open.
+    UIMenus=UIMenus or {};table.insert(UIMenus,picker:GetName())
+    for i,choice in ipairs(self.bagModelChoices) do
+        local row=CreateFrame("Button",nil,picker)
+        row:SetPoint("TOPLEFT",picker,"TOPLEFT",8+math.mod(i-1,2)*149,-8-math.floor((i-1)/2)*64)
+        row:SetWidth(145);row:SetHeight(62);row.choice=choice;row.modelID=choice.id
+        row:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=10,
+            insets={left=2,right=2,top=2,bottom=2}})
+        row:SetBackdropColor(1,1,1,1)
+        row.selected=row:CreateTexture(nil,"BACKGROUND")
+        row.selected:SetPoint("TOPLEFT",row,"TOPLEFT",3,-3);row.selected:SetWidth(139);row.selected:SetHeight(56)
+        row.selected:SetTexture("Interface\\Buttons\\WHITE8X8");row.selected:SetVertexColor(.43,.30,.08,.55)
+        row.icon=row:CreateTexture(nil,"ARTWORK")
+        row.icon:SetPoint("TOPLEFT",row,"TOPLEFT",7,-11);row.icon:SetWidth(40);row.icon:SetHeight(40)
+        row.icon:SetTexture(choice.icon)
+        row.caption=label(row,choice.name,54,7,84,48,true)
+        row.caption:SetFont("Fonts\\FRIZQT__.TTF",10);row.caption:SetJustifyV("MIDDLE")
+        row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
+        row:SetScript("OnClick",function()
+            local id=this.bagID;local slot=this.emptySlot;local key=this.targetKey;local chosen=this.choice
+            if not picker:IsShown() or picker.bagID~=id or picker.emptySlot~=slot or picker.targetKey~=key then return end
+            local state=V:GetBagTunerState()
+            if slot then
+                if not f:IsShown() or f.emptySlot~=slot or state.key~=key or V:BagInSlot(slot) then V:CloseBagTunerModelPicker();return end
+                V:CloseBagTunerModelPicker()
+                local ok,bag=V:AddBag(chosen.id,"back",slot)
+                if ok and bag then V:OpenBagTuner(bag.id)
+                else showMessage("This bag could not be added. Try again.");V:RefreshBagTunerUI() end
+                return
+            end
+            if state.key~=key or not V:PrepareBagTunerSelection(id) then V:CloseBagTunerModelPicker();return end
+            local bag=V:BagInstance(id)
+            local model=V:BagModelChoice(bag.model)==chosen and bag.model or chosen.id
+            V:CloseBagTunerModelPicker()
+            if V:SetBagModel(id,model,true) then
+                f.message=nil;f.messageTime=nil;V:RefreshBagTunerUI()
+            end
+        end)
+        tooltip(row,choice.name..(choice.colors and "\nChoose a cloth color after selecting this model." or "").."\nYour current fit is kept.")
+        table.insert(picker.rows,row)
+    end
+    f.colorChoices=CreateFrame("Frame",nil,f.bagSelectors)
+    f.colorChoices:SetPoint("TOPLEFT",f.bagSelectors,"TOPLEFT",187,-104);f.colorChoices:SetWidth(144);f.colorChoices:SetHeight(24)
+    f.colorCaption=label(f.colorChoices,"Color",0,2,45,20,true)
+    f.colorCaption:SetFont("Fonts\\FRIZQT__.TTF",11);f.colorCaption:SetJustifyV("MIDDLE")
+    f.colorSwatches={}
+    local colorCount=0
+    for _,choice in ipairs(self.bagModelChoices) do colorCount=math.max(colorCount,table.getn(choice.colors or {})) end
+    for i=1,colorCount do
+        local swatch=CreateFrame("Button",nil,f.colorChoices)
+        swatch:SetPoint("TOPLEFT",f.colorChoices,"TOPLEFT",50+(i-1)*24,-1);swatch:SetWidth(22);swatch:SetHeight(22)
+        local border=swatch:CreateTexture(nil,"BACKGROUND");border:SetAllPoints(swatch)
+        border:SetTexture("Interface\\Buttons\\WHITE8X8");border:SetVertexColor(.36,.32,.24)
+        swatch.selectedBorder=swatch:CreateTexture(nil,"BORDER");swatch.selectedBorder:SetAllPoints(swatch)
+        swatch.selectedBorder:SetTexture("Interface\\Buttons\\WHITE8X8");swatch.selectedBorder:SetVertexColor(1,.82,0)
+        swatch.fill=swatch:CreateTexture(nil,"ARTWORK");swatch.fill:SetPoint("TOPLEFT",swatch,"TOPLEFT",3,-3)
+        swatch.fill:SetWidth(16);swatch.fill:SetHeight(16);swatch.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+        swatch.selectedCheck=swatch:CreateTexture(nil,"OVERLAY");swatch.selectedCheck:SetPoint("CENTER",swatch,"CENTER",0,0)
+        swatch.selectedCheck:SetWidth(18);swatch.selectedCheck:SetHeight(18);swatch.selectedCheck:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        swatch:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square","ADD")
+        swatch:SetScript("OnClick",function()
+            local id=this.bagID;local color=this.color
+            if not color or not V:PrepareBagTunerSelection(id) then return end
+            local bag=V:BagInstance(id)
+            if V:BagModelChoice(bag.model)~=V:BagModelChoice(color.id) then return end
+            if V:SetBagModel(id,color.id,true) then
+                f.message=nil;f.messageTime=nil;CloseDropDownMenus();V:RefreshBagTunerUI()
+            end
+        end)
+        swatch:SetScript("OnEnter",function()
+            if not this.color then return end
+            GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:ClearLines()
+            GameTooltip:AddLine(this.color.name,1,1,1)
+            GameTooltip:AddLine("Change the cloth color. Your fit is kept.",1,.82,0,true);GameTooltip:Show()
+        end)
+        swatch:SetScript("OnLeave",function() GameTooltip:Hide() end)
+        table.insert(f.colorSwatches,swatch)
+    end
+    f.status=label(f,"",31,130,302,20,true)
     f.status:SetFont("Fonts\\FRIZQT__.TTF",10)
     local function checkbox(name,text,x,width,callback,help)
         local b=CreateFrame("CheckButton",name,f,"UICheckButtonTemplate")
-        b:SetPoint("TOPLEFT",f,"TOPLEFT",x,-139);b:SetWidth(24);b:SetHeight(24)
+        b:SetPoint("TOPLEFT",f,"TOPLEFT",x,-151);b:SetWidth(24);b:SetHeight(24)
         b:SetHitRectInsets(0,-width+24,0,0);b:SetScript("OnClick",callback)
-        local caption=label(f,text,x+27,140,width-27,22,true)
+        local caption=label(f,text,x+27,152,width-27,22,true)
         caption:SetFont("Fonts\\FRIZQT__.TTF",11);caption:SetJustifyV("MIDDLE")
         tooltip(b,help)
         return b
@@ -140,7 +370,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
     end
     for i,field in ipairs(self.bagTunerFields) do
         local row=CreateFrame("Frame",nil,f)
-        row:SetPoint("TOPLEFT",f,"TOPLEFT",31,-166-(i-1)*23);row:SetWidth(300);row:SetHeight(22)
+        row:SetPoint("TOPLEFT",f,"TOPLEFT",31,-178-(i-1)*23);row:SetWidth(300);row:SetHeight(22)
         local caption=label(row,field.label,0,2,102,20,true)
         caption:SetFont("Fonts\\FRIZQT__.TTF",11);caption:SetJustifyV("MIDDLE")
         local e=edit(row,"SaureksClosetBagTuner"..field.key,139,0,67,16)
@@ -181,21 +411,22 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             local targetKey=owner.targetKey or window.targetKey;owner.targetKey=nil
             local state=V:GetBagTunerState()
             if not state.available or state.key~=targetKey then
-                showMessage(state.available and "The character changed. Click Reset again for the current model." or state.status)
+                showMessage(state.available and "The placement changed. Click Reset again for the current model." or state.status)
                 V:RefreshBagTunerUI();return
             end
             local editor=owner.editor
             editor.editing=nil;editor.cancelCommit=true;editor:ClearFocus();editor.cancelCommit=nil
             if window.invalidEditor==editor then window.invalidInput=nil;window.invalidEditor=nil end
             local ok,err=V:ResetBagTunerField(editor.field.key)
-            showMessage(ok and (editor.field.label.." restored to its default.") or (err or "That field could not be reset."))
+            if ok then window.message=nil;window.messageTime=nil
+            else showMessage(err or "That field could not be reset.") end
             V:RefreshBagTunerUI()
         end)
         table.insert(f.rows,{editor=e,caption=caption,minus=nudge(row,"-",108,field,-1),plus=nudge(row,"+",216,field,1),reset=reset})
     end
-    local hint=label(f,"Shift-click +/- for larger steps.",31,332,300,15,true)
+    local hint=label(f,"Shift-click +/- for larger steps.",31,342,300,15,true)
     hint:SetFont("Fonts\\FRIZQT__.TTF",10);hint:SetTextColor(.72,.72,.72)
-    local function action(name,text,x,y,method,message)
+    local function action(name,text,x,y,method)
         local b=settingsButton(f,text,x,y,145,function()
             for _,row in ipairs(V.bagTunerWindow.rows) do
                 if row.editor.editing then
@@ -205,37 +436,57 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             end
             if V.bagTunerWindow.invalidInput then V.bagTunerWindow.invalidInput=nil;return end
             local ok,err=V[method](V)
-            showMessage(ok and message or (err or "The fit could not be changed."))
+            if ok then V.bagTunerWindow.message=nil;V.bagTunerWindow.messageTime=nil
+            else showMessage(err or "The fit could not be changed.") end
             V:RefreshBagTunerUI()
         end,.75)
         f[name]=b
     end
-    action("save","Save Fit",31,353,"SaveBagTunerFit","Fit saved for this placement, race and gender.")
-    action("load","Load Saved",186,353,"LoadBagTunerFit","Saved fit loaded.")
-    action("reset","Reset",31,385,"ResetBagTunerFit","Draft restored to the program's default fit.")
-    f.export=settingsButton(f,"Export",186,385,145,function() V:OpenBagTunerExport() end,.75)
+    action("save","Save Fit",31,362,"SaveBagTunerFit")
+    action("load","Load Saved",186,362,"LoadBagTunerFit")
+    action("reset","Reset",31,392,"ResetBagTunerFit")
+    f.export=settingsButton(f,"Export",186,392,145,function() V:OpenBagTunerExport() end,.75)
     tooltip(f.save,"Save this fit for the current placement, race and gender. Saved fits remain available after restarting the game.")
     tooltip(f.load,"Replace the current draft with the last fit saved for this placement, race and gender.")
     tooltip(f.reset,"Restore the current draft to the program's default fit. Your previously saved fit remains available.")
     tooltip(f.export,"Open a copyable report containing the current draft and all your saved fits, ready to send for implementation.")
-    f.savedState=label(f,"",31,417,300,14,true)
-    f.savedState:SetFont("Fonts\\FRIZQT__.TTF",10);f.savedState:SetJustifyH("CENTER")
     self:RefreshBagTunerUI()
 end
-function V:OpenBagTuner()
+function V:OpenBagSlotTuner(slot)
+    if type(slot)~="number" or slot~=math.floor(slot) or slot<1 or slot>self.MAX_BAGS then return false end
+    local bag=self:BagInSlot(slot)
+    if bag then self:OpenBagTuner(bag.id);return true end
+    if not self:MultiBagRendererAvailable() then return false end
+    if not self.frame then self:Toggle(true) end
+    local f=self.bagTunerWindow
+    if not f then return false end
+    if f:IsShown() then f:Hide() end
+    self.placementTunerSlot=nil;self.placementTunerBag=nil;self.bagTunerTargetKey=nil
+    f.emptySlot=slot;f.message=nil;f.messageTime=nil
+    f:Show();self:RefreshBagTunerUI();self:OpenBagTunerModelPicker()
+    if self.RefreshBagsPage then self:RefreshBagsPage() end
+    return true
+end
+function V:OpenBagTuner(instanceID)
+    if instanceID and self.BagInstance and not self:BagInstance(instanceID) then return end
     if not self.frame then self:Toggle(true) end
     if not self.bagTunerWindow then return end
     if self.bagTunerWindow:IsShown() then self.bagTunerWindow:Hide() end
+    self.bagTunerWindow.emptySlot=nil
     self.placementTunerSlot=nil
+    local first=self.GetBags and self:GetBags()[1]
+    self.placementTunerBag=instanceID or (first and first.id)
     self.bagTunerWindow.message=nil;self.bagTunerWindow.messageTime=nil
     self.bagTunerWindow:Show();self:RefreshBagTunerUI()
+    if self.RefreshBagsPage then self:RefreshBagsPage() end
 end
 function V:OpenPlacementTuner(slot)
     if not self:IsCarriedWeapon(slot) then return end
     if not self.frame then self:Toggle(true) end
     if not self.bagTunerWindow then return end
     if self.bagTunerWindow:IsShown() then self.bagTunerWindow:Hide() end
-    self.placementTunerSlot=slot
+    self.bagTunerWindow.emptySlot=nil
+    self.placementTunerSlot=slot;self.placementTunerBag=nil
     self.bagTunerWindow.message=nil;self.bagTunerWindow.messageTime=nil
     self.bagTunerWindow:Show();self:RefreshBagTunerUI()
 end

@@ -1,20 +1,555 @@
 {
-  "vertices": 1624,
-  "triangles": 1512,
-  "bounds": [
-    [
-      -0.3856084495782852,
-      -0.4410000145435333,
-      -0.6195000112056732
-    ],
-    [
-      0.0,
-      0.4410000145435333,
-      0.6195000112056732
-    ]
-  ],
-  "bytes": 98530,
-  "source_sha256": "9cd003fcc2b5316780798146643d00487252b950f64190a50bee5e28e9048bed",
-  "texture_sha256": "98923ea9d654e0170003ba17a51ed3b2bcec24db9f8043bcbb21c61ec1728d9b",
-  "blp_bytes": 12108
+  "schema": 2,
+  "bags": [
+    {
+      "vertices": 1624,
+      "triangles": 1512,
+      "bounds": [
+        [
+          -0.3856084495782852,
+          -0.4410000145435333,
+          -0.6195000112056732
+        ],
+        [
+          0.0,
+          0.4410000145435333,
+          0.6195000112056732
+        ]
+      ],
+      "bytes": 98530,
+      "id": 1,
+      "name": "Runecloth Bag",
+      "stem": "DarkSchoolbag",
+      "source": "DarkSchoolbag.glb",
+      "origin": "assets/DarkSchoolbag.glb",
+      "source_sha256": "9cd003fcc2b5316780798146643d00487252b950f64190a50bee5e28e9048bed",
+      "texture_sha256": "98923ea9d654e0170003ba17a51ed3b2bcec24db9f8043bcbb21c61ec1728d9b",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0,
+      "model": "DarkSchoolbag.m2",
+      "model_sha256": "cc2f7b8afc630b7d6c23e3ece40d557452314618f7949f02b3afd9667ae8c176",
+      "texture": "DarkSchoolbag.blp",
+      "blp_sha256": "98cd0fdd03941f408cc4417268ffe4a54a450fb320f22b286708a1dd4e878d6b",
+      "blp_bytes": 12108
+    },
+    {
+      "vertices": 3262,
+      "triangles": 3268,
+      "bounds": [
+        [
+          -0.6902362146213902,
+          -0.6881619578968535,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.6881619578968535,
+          0.6195
+        ]
+      ],
+      "bytes": 197570,
+      "id": 2,
+      "name": "Amber Traveler Even Strap",
+      "stem": "AmberTravelerEvenStrap",
+      "source": "AmberTravelerEvenStrap.glb",
+      "origin": "Amber_Traveler_04_Even_Strap/Amber_Traveler_Even_Strap.glb",
+      "source_sha256": "cd8a948bd163e5442b32072318acc0b7a1431f8e9239906a8a4808a386ab2730",
+      "texture_sha256": "0164cdaedab28ed1c92b8600d64a6865ba78c38dd4c77663ecb23c4f039321c7",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.2094234639305395,
+      "model": "AmberTravelerEvenStrap.m2",
+      "model_sha256": "69383dcf973f970268050a745ed59d4bec406f28f0e8469438d5421154aa5aed",
+      "texture": "AmberTravelerEvenStrap.blp",
+      "blp_sha256": "ecda921e3f9fa983e877ab33ea2df99d2f59fa5584d5a69aa7be20967a37cd65",
+      "blp_bytes": 44876
+    },
+    {
+      "vertices": 3126,
+      "triangles": 2988,
+      "bounds": [
+        [
+          -0.5230877288086302,
+          -0.5757876359973767,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.5757876359973767,
+          0.6195
+        ]
+      ],
+      "bytes": 188530,
+      "id": 3,
+      "name": "Burgundy Rucksack",
+      "stem": "BurgundyRucksack",
+      "source": "BurgundyRucksack.glb",
+      "origin": "Burgundy_Rucksack_05/Burgundy_Rucksack.glb",
+      "source_sha256": "b38ca77c82cde04bad2e363e419ff0b6bd0010a13ac87d7c7331948ecdee0114",
+      "texture_sha256": "9dd0270a964e167139a4c76a94fa6759bf3c64d45718e75e416c6dd817c002fa",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 0.9848966486744032,
+      "model": "BurgundyRucksack.m2",
+      "model_sha256": "384490aa8270fb234ed4ad06d239044bd5a372e9f5a045b29e30f962165367d1",
+      "texture": "BurgundyRucksack.blp",
+      "blp_sha256": "2860f249cdaf1a9a8ce6281495f280ae7324c6a95b6338a060f88f3234e50361",
+      "blp_bytes": 44876,
+      "retired": true
+    },
+    {
+      "vertices": 3074,
+      "triangles": 4852,
+      "bounds": [
+        [
+          -0.37532641489000873,
+          -0.48531940452638667,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.48531940452638667,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 196914,
+      "id": 4,
+      "name": "Milloo Dark Leather",
+      "stem": "MillooDarkLeather",
+      "source": "MillooDarkLeather.glb",
+      "origin": "Milloo_Dark_Leather/Milloo_Dark_Leather.glb",
+      "source_sha256": "91eb8f45684007e7aff3db6dd2eddd1eb06029789ea37ddc8671a946a4278c79",
+      "texture_sha256": "de0c23f5bd3666fab9b7138418e146219c9a3c8cca459d8a2bb938efaa03a872",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooDarkLeather.m2",
+      "model_sha256": "982779dbd5947b8ec27eb6a30879069dd87b00a4154018e7e1f5538ca5d7da7d",
+      "texture": "MillooDarkLeather.blp",
+      "blp_sha256": "3bce8604ab8ef979481fbb24876eed4276e2e6f9f67010696f3542a0fd3fa4a8",
+      "blp_bytes": 44876,
+      "retired": true
+    },
+    {
+      "vertices": 3074,
+      "triangles": 4852,
+      "bounds": [
+        [
+          -0.37532641489000873,
+          -0.48531940452638667,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.48531940452638667,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 196898,
+      "id": 5,
+      "name": "Milloo No Zippers",
+      "stem": "MillooNoZippers",
+      "source": "MillooNoZippers.glb",
+      "origin": "Milloo_No_Zippers/Milloo_No_Zippers.glb",
+      "source_sha256": "2be1692f6464c63bbba3a81cb74829e25352fb854f7da22c5a48ab6adc0ffead",
+      "texture_sha256": "cc78bac6c511d612e62dab7e459faf0b958fb5293b6dda099189af29a733621d",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooNoZippers.m2",
+      "model_sha256": "8fc93b72a369d4b9a41bd63344709fac5c2996d260988bc4eec0127b03bda3fc",
+      "texture": "MillooNoZippers.blp",
+      "blp_sha256": "02188f25ced15740c212c6f029670057bc1958be5459269bfb30196032caf8e9",
+      "blp_bytes": 44876
+    },
+    {
+      "vertices": 3538,
+      "triangles": 5576,
+      "bounds": [
+        [
+          -0.3757816106914867,
+          -0.4876095010122144,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.4876095010122144,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 226290,
+      "id": 6,
+      "name": "Milloo Scratch",
+      "stem": "MillooScratch",
+      "source": "MillooScratch.glb",
+      "origin": "Milloo_Scratch/Milloo_Scratch.glb",
+      "source_sha256": "2a55dbc438efbd3f979aa5b7257e87896da122d5c5c82b1566b30b480dd4f1a9",
+      "texture_sha256": "e75d6bbf25c3dafedd1ea2110a9b7c5606ddc8910adee6e2b0216787a7acca2c",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooScratch.m2",
+      "model_sha256": "ee6070304dd435a6e482baf708480bd7fbb95d383708d27c44eb9c2da278538d",
+      "texture": "MillooScratch.blp",
+      "blp_sha256": "dcdf264951e610f3209a67cd284d72d605ee7f3008c367cc1bd3b3af65ae12d6",
+      "blp_bytes": 44876,
+      "retired": true
+    },
+    {
+      "vertices": 3074,
+      "triangles": 4852,
+      "bounds": [
+        [
+          -0.37532641489000873,
+          -0.48531940452638667,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.48531940452638667,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 196930,
+      "id": 7,
+      "name": "Milloo Smooth Dark Leather",
+      "stem": "MillooSmoothDarkLeather",
+      "source": "MillooSmoothDarkLeather.glb",
+      "origin": "Milloo_Smooth_Dark_Leather/Milloo_Smooth_Dark_Leather.glb",
+      "source_sha256": "dc868d6c91934a25175e4af7377fc0bd80becc4d0f87d5603c534b34ebb5a755",
+      "texture_sha256": "c0b1df18becd5592752db9f6c27c8745cb9b7c37533a228086250161b5932e41",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooSmoothDarkLeather.m2",
+      "model_sha256": "7b2b4c5e770cffab80854954b6e34b5c08aea9aaab09f16816cd93d19ee9cbda",
+      "texture": "MillooSmoothDarkLeather.blp",
+      "blp_sha256": "8493d2ded280da8098612652d7286c8e03a63db465eb7a97352f714a67677f1f",
+      "blp_bytes": 44876
+    },
+    {
+      "vertices": 3074,
+      "triangles": 4852,
+      "bounds": [
+        [
+          -0.37532641489000873,
+          -0.48531940452638667,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.48531940452638667,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 196930,
+      "id": 8,
+      "name": "Milloo Smooth Tan Leather",
+      "stem": "MillooSmoothTanLeather",
+      "source": "MillooSmoothTanLeather.glb",
+      "origin": "Milloo_Smooth_Tan_Leather/Milloo_Smooth_Tan_Leather.glb",
+      "source_sha256": "bea944d8fec9ba9bab9f61e3b8c470f5f32cafcda1744b5d1bb5a02921216686",
+      "texture_sha256": "4dfea25aa7739759a1944d101ad756015ed92ff1c3291060b81d15c522d603d3",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooSmoothTanLeather.m2",
+      "model_sha256": "aa48831a4fff8df4f70c70d74aac9f524e5a82f5a4fd2c2428b06424b54c904f",
+      "texture": "MillooSmoothTanLeather.blp",
+      "blp_sha256": "693fca4c440271454e7dcbf1aaf7b9e5090505d8c8a19c20ec1dc3cd33c3c676",
+      "blp_bytes": 44876
+    },
+    {
+      "vertices": 3074,
+      "triangles": 4852,
+      "bounds": [
+        [
+          -0.37532641489000873,
+          -0.48531940452638667,
+          -0.6194999999999999
+        ],
+        [
+          0.0,
+          0.48531940452638667,
+          0.6194999999999999
+        ]
+      ],
+      "bytes": 196914,
+      "id": 9,
+      "name": "Milloo Tan Leather",
+      "stem": "MillooTanLeather",
+      "source": "MillooTanLeather.glb",
+      "origin": "Milloo_Tan_Leather/Milloo_Tan_Leather.glb",
+      "source_sha256": "468c42a5c938a012964ae5391770b11f62bdf6f55f82fe43abfc51db26b098a6",
+      "texture_sha256": "87ada0416fbe11d80c31bcaa9df479e2f93e944034bbd7f06955980938c7e943",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.0388244961829005,
+      "model": "MillooTanLeather.m2",
+      "model_sha256": "621b618f5a6612717f7929770da5420c5e872c82293c66df886ef3b5c5e6034b",
+      "texture": "MillooTanLeather.blp",
+      "blp_sha256": "5ee3a0f73a198460ada1340eaba04dc2d022887d8dc76cd11863939fd65ca8d3",
+      "blp_bytes": 44876,
+      "retired": true
+    },
+    {
+      "vertices": 3649,
+      "triangles": 3478,
+      "bounds": [
+        [
+          -0.5934620170341152,
+          -0.5545693909084322,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.5545693909084322,
+          0.6195
+        ]
+      ],
+      "bytes": 219714,
+      "id": 10,
+      "name": "Ranger Rucksack",
+      "stem": "RangerRucksack",
+      "source": "RangerRucksack.glb",
+      "origin": "Ranger_Rucksack_02/Ranger_Rucksack.glb",
+      "source_sha256": "505e7b43298e21660a7ca0c41842f4a13ad218369d8b5053c19d90215be59643",
+      "texture_sha256": "28f4350580781123f70853767bb81a12f6b082725e546401e38eb210694b378b",
+      "source_atlas_size": [
+        512,
+        512
+      ],
+      "normalization_scale": 0.9618653701231895,
+      "model": "RangerRucksack.m2",
+      "model_sha256": "2151325225b6e8912463e202745b9703c5a10f8f534b3e9789cc07eb186ee14e",
+      "texture": "RangerRucksack.blp",
+      "blp_sha256": "cf372e2ebb063260173f29cf363544067392be25d5d06fabde7d1fb0eedfd6e4",
+      "blp_bytes": 175948
+    },
+    {
+      "vertices": 1655,
+      "triangles": 2624,
+      "bounds": [
+        [
+          -0.3879507851087805,
+          -0.4482698661164935,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.4482698661164935,
+          0.6195
+        ]
+      ],
+      "bytes": 106898,
+      "id": 11,
+      "name": "Black Leather Sling",
+      "stem": "BlackLeatherSling",
+      "source": "BlackLeatherSling.glb",
+      "origin": "black-leather-sling/Black_Leather_Sling.glb",
+      "source_sha256": "cc3df86b88746c683749ff0a0bf33ab65d6523a50431014d874c271d8ba698c6",
+      "texture_sha256": "f254971fc17b75d38adf33599541d7def6911637da0cecc54e69e33d2aa147d0",
+      "source_atlas_size": [
+        128,
+        128
+      ],
+      "normalization_scale": 1.2419927516562468,
+      "model": "BlackLeatherSling.m2",
+      "model_sha256": "ae1cc4e0d0ffc4251f595e05a88ce4b08a42f2c7f193878c6ba1a5f5afdff119",
+      "texture": "BlackLeatherSling.blp",
+      "blp_sha256": "6ada7fc8548ef4e90c3e0481324645fee3dadca1b7df03672dbdf5142c000308",
+      "blp_bytes": 12108
+    },
+    {
+      "vertices": 1199,
+      "triangles": 1691,
+      "bounds": [
+        [
+          -0.42331887935379,
+          -0.593370188108084,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.593370188108084,
+          0.6195
+        ]
+      ],
+      "bytes": 76690,
+      "id": 12,
+      "name": "Burgundy Cloth Pouch Low",
+      "stem": "BurgundyClothPouchLow",
+      "source": "BurgundyClothPouchLow.glb",
+      "origin": "cloth-pouch-color-variants/burgundy/Burgundy_Cloth_Pouch_WoW_Low.glb",
+      "source_sha256": "9532654bf6172dce11792d09b6bc732a173c9b4a41ec70b3ac70b1d27518ea18",
+      "texture_sha256": "26faeb0a2247de4fd491796c97bac866431d5ae1831ea51819ddac37a8edf444",
+      "source_atlas_size": [
+        128,
+        128
+      ],
+      "normalization_scale": 1.2310793169587768,
+      "model": "BurgundyClothPouchLow.m2",
+      "model_sha256": "e224a547f6e412cde4c9e138b98f86b30de41bd1556f7fba1f5e9dda859e2009",
+      "texture": "BurgundyClothPouchLow.blp",
+      "blp_sha256": "a0b3321d08056461968669ba3a3052604e9a3a66e8eae722bea2b2cecbd21959",
+      "blp_bytes": 12108
+    },
+    {
+      "vertices": 1199,
+      "triangles": 1691,
+      "bounds": [
+        [
+          -0.42331887935379,
+          -0.593370188108084,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.593370188108084,
+          0.6195
+        ]
+      ],
+      "bytes": 76690,
+      "id": 13,
+      "name": "Navy Cloth Pouch Low",
+      "stem": "NavyClothPouchLow",
+      "source": "NavyClothPouchLow.glb",
+      "origin": "cloth-pouch-color-variants/navy/Navy_Cloth_Pouch_WoW_Low.glb",
+      "source_sha256": "c149d6300efe20a2ffc344232ef28a095d6de827a5e01bf077f41a48e264b0f9",
+      "texture_sha256": "2ab11a083db16f86d2102baec11e6264bab89293924a9f8a92c4e88f68b31370",
+      "source_atlas_size": [
+        128,
+        128
+      ],
+      "normalization_scale": 1.2310793169587768,
+      "model": "NavyClothPouchLow.m2",
+      "model_sha256": "dcdc27cf2a84048b4435988411c6c96330c684dcf29d8f4f5e0eaa5d1d0d8865",
+      "texture": "NavyClothPouchLow.blp",
+      "blp_sha256": "0e8bd730fd99af7cf647ea7cebe4a3897c3f350fcfef27209653363484994164",
+      "blp_bytes": 12108
+    },
+    {
+      "vertices": 1199,
+      "triangles": 1691,
+      "bounds": [
+        [
+          -0.42331887935379,
+          -0.593370188108084,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.593370188108084,
+          0.6195
+        ]
+      ],
+      "bytes": 76690,
+      "id": 14,
+      "name": "Ochre Cloth Pouch Low",
+      "stem": "OchreClothPouchLow",
+      "source": "OchreClothPouchLow.glb",
+      "origin": "cloth-pouch-color-variants/ochre/Ochre_Cloth_Pouch_WoW_Low.glb",
+      "source_sha256": "e4d0fbf7e0915c47a4ef168b9de4f882dbe8fa03b3bc4fc390a1205c9952316e",
+      "texture_sha256": "1abe2f1b6ebc4667df1b554f7021cac46c76b61d1f42605042cc7571decb8f13",
+      "source_atlas_size": [
+        128,
+        128
+      ],
+      "normalization_scale": 1.2310793169587768,
+      "model": "OchreClothPouchLow.m2",
+      "model_sha256": "fdd3fbcd2076f553741c334cd9bb9a43f47c8f3f2d29d8f5762bf1eb9a140c22",
+      "texture": "OchreClothPouchLow.blp",
+      "blp_sha256": "8315f4735ff40dc8a3eea4dc0eb4e8d34cd782f7155f8b2b454521c3b6c95ccc",
+      "blp_bytes": 12108
+    },
+    {
+      "vertices": 3240,
+      "triangles": 5196,
+      "bounds": [
+        [
+          -0.4245360714365681,
+          -0.5926521912027449,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.5926521912027449,
+          0.6195
+        ]
+      ],
+      "bytes": 207906,
+      "id": 15,
+      "name": "Olive Cloth Pouch",
+      "stem": "OliveClothPouch",
+      "source": "OliveClothPouch.glb",
+      "origin": "olive-cloth-pouch/Olive_Cloth_Pouch.glb",
+      "source_sha256": "861e67e56b3921d301d65f785a9a4549d922abe02c894067a8e82cc3e3e54114",
+      "texture_sha256": "3ac62e95bdaef22dcbf72f68ab37087132ca6255a99e4aa55c38a79c6825a0d5",
+      "source_atlas_size": [
+        256,
+        256
+      ],
+      "normalization_scale": 1.2329348718893922,
+      "model": "OliveClothPouch.m2",
+      "model_sha256": "1fce959a841e4cbc2d42a1a14dc0fdc45175ad99e98f6295c17f6aa027a62f7e",
+      "texture": "OliveClothPouch.blp",
+      "blp_sha256": "c72a27ca66116787751825ee10215b03827a1aa68186da116ddfa45429e017cb",
+      "blp_bytes": 44876,
+      "retired": true,
+      "replacement": 16
+    },
+    {
+      "vertices": 1199,
+      "triangles": 1691,
+      "bounds": [
+        [
+          -0.42331887935379,
+          -0.593370188108084,
+          -0.6195
+        ],
+        [
+          0.0,
+          0.593370188108084,
+          0.6195
+        ]
+      ],
+      "bytes": 76690,
+      "id": 16,
+      "name": "Olive Cloth Pouch Low",
+      "stem": "OliveClothPouchLow",
+      "source": "OliveClothPouchLow.glb",
+      "origin": "olive-cloth-pouch-wow-low/Olive_Cloth_Pouch_WoW_Low.glb",
+      "source_sha256": "8f734ea810ded75763d6e5500cded270ab0141c90f794bacb7a38db40a46d50c",
+      "texture_sha256": "6200d5aea3f788886e3d7cfe9047a5da3a6a2a1f144003d243ee38e7a9bf0988",
+      "source_atlas_size": [
+        128,
+        128
+      ],
+      "normalization_scale": 1.2310793169587768,
+      "model": "OliveClothPouchLow.m2",
+      "model_sha256": "4c8d822dbff84746334c6a035ffebf92b1abb80c10f3884446fe3b181f91f7a1",
+      "texture": "OliveClothPouchLow.blp",
+      "blp_sha256": "ef1a03486744f10230d99da9d5291599f7c553ff6642e009853db3f0cce631c3",
+      "blp_bytes": 12108
+    }
+  ]
 }

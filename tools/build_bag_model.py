@@ -1,4 +1,4 @@
-"""Convert the original Dark Schoolbag GLB to a rigid build-5875 M2 and mipmapped BLP.
+"""Convert a rigid, single-atlas bag GLB to a build-5875 M2 and mipmapped BLP.
 
 No client meshes are used. Vanilla layout: wowdev/pywowlib m2_format.py and
 skin_format.py, cross-checked against the installed 1.12.1 loader/rigid props.
@@ -41,12 +41,20 @@ def read_glb(path):
     for p in doc['meshes'][0]['primitives']:
         assert p.get('mode', 4) == 4
         material = doc['materials'][p['material']]
-        tex = doc['textures'][material['pbrMetallicRoughness']['baseColorTexture']['index']]
+        pbr = material['pbrMetallicRoughness']
+        assert pbr.get('baseColorFactor', [1,1,1,1]) == [1,1,1,1], 'Material tint must be baked into the atlas'
+        assert material.get('alphaMode', 'OPAQUE') == 'OPAQUE', 'Only opaque bag materials are supported'
+        assert not pbr['baseColorTexture'].get('extensions'), 'Texture transforms must be baked into UVs'
+        assert pbr['baseColorTexture'].get('texCoord', 0) == 0
+        tex = doc['textures'][pbr['baseColorTexture']['index']]
         assert tex['source'] == 0, 'All materials must share the original painted atlas'
         pos, normals, uv = [accessor(p['attributes'][k]) for k in ('POSITION', 'NORMAL', 'TEXCOORD_0')]
         assert len(pos) == len(normals) == len(uv)
         start = len(vertices)
         for xyz, normal, coord in zip(pos, normals, uv):
+            assert all(math.isfinite(v) for v in (*xyz, *normal, *coord)), 'Non-finite mesh value'
+            assert abs(sum(v*v for v in normal)-1) < .001, 'Normals must be unit length'
+            assert all(0 <= v <= 1 for v in coord), 'UVs must lie within the painted atlas'
             # glTF +Y up/+Z outward -> WoW +Z up/-X outward. +Y is anatomical left.
             vertices.append(((-xyz[2], -xyz[0], xyz[1]), (-normal[2], -normal[0], normal[1]), coord))
         indices = [i[0] for i in accessor(p['indices'])]
@@ -64,7 +72,8 @@ def read_glb(path):
     return vertices, triangles, atlas
 
 
-def write_m2(vertices, triangles, path):
+def write_m2(vertices, triangles, path, model_name='DarkSchoolbag'):
+    assert model_name.isascii() and model_name.isalnum(), 'Use an ASCII model basename'
     data = bytearray(0x144)
     S.pack_into('<4sI', data, 0, b'MD20', 256)
 
@@ -79,8 +88,8 @@ def write_m2(vertices, triangles, path):
     radius = max(math.sqrt(sum(c*c for c in v[0])) for v in vertices)
     bounds = S.pack('<7f', *low, *high, radius)
     data[0xb4:0xd0] = bounds
-    model_name=b'DarkSchoolbag\0'
-    array(8, len(model_name), model_name)
+    encoded_name=model_name.encode('ascii')+b'\0'
+    array(8, len(encoded_name), encoded_name)
     sequence = S.pack('<HHIIfIhHIII', 0, 0, 0, 1000, 0, 0, 32767, 0, 0, 0, 0) + bounds + S.pack('<hH', -1, 0)
     assert len(sequence) == 68
     array(0x1c, 1, sequence)
@@ -100,7 +109,7 @@ def write_m2(vertices, triangles, path):
     array(view+24, 1, S.pack('<10H3f', 0,0,0,len(vertices),0,len(triangles),1,0,1,0,*center))
     array(view+32, 1, S.pack('<4Hh7H', 16,0,0,0,-1,0,0,1,0,0,0,0))
     S.pack_into('<I', data, view+40, 21)
-    texture = b'Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.blp\0'
+    texture = ('Interface\\AddOns\\SaureksCloset\\Models\\'+model_name+'.blp\0').encode('ascii')
     name = block(texture)
     array(0x5c, 1, S.pack('<4I', 2,0,len(texture),name))
     ranges = block(S.pack('<2I',0,0)); times = block(S.pack('<I',0)); values = block(S.pack('<h',32767))
@@ -113,17 +122,21 @@ def write_m2(vertices, triangles, path):
     return dict(vertices=len(vertices),triangles=len(triangles)//3,bounds=[low,high],bytes=len(data))
 
 
-def write_blp(atlas, path):
+def write_blp(atlas, path, size=128):
     image = Image.open(io.BytesIO(atlas)).convert('RGB')
-    assert image.size == (256,256)
+    if size is None:
+        size = image.width
+    assert image.width == image.height and image.width in (128,256,512), 'Expected a square 128/256/512 painted atlas'
+    assert size in (128,256,512), 'Unsupported output texture size'
+    levels = int(math.log2(size))+1
     offsets, sizes, chunks = [0]*16, [0]*16, []
     offset = 1172
-    for i in range(8):
-        mip = image.resize((max(1,128>>i),)*2, Image.Resampling.LANCZOS)
+    for i in range(levels):
+        mip = image.resize((max(1,size>>i),)*2, Image.Resampling.LANCZOS)
         stream = io.BytesIO();mip.save(stream,format='DDS',pixel_format='DXT1')
         encoded = stream.getvalue();assert encoded[84:88] == b'DXT1'
         chunk = encoded[128:];offsets[i]=offset;sizes[i]=len(chunk);offset+=len(chunk);chunks.append(chunk)
-    header = S.pack('<4sI4BII',b'BLP2',1,2,0,0,1,128,128)
+    header = S.pack('<4sI4BII',b'BLP2',1,2,0,0,1,size,size)
     path.write_bytes(header+S.pack('<16I',*offsets)+S.pack('<16I',*sizes)+bytes(1024)+b''.join(chunks))
 
 
@@ -136,5 +149,6 @@ if __name__ == '__main__':
     report = write_m2(vertices,triangles,output/'DarkSchoolbag.m2')
     write_blp(atlas,output/'DarkSchoolbag.blp')
     report.update(source_sha256=hashlib.sha256(args.source.read_bytes()).hexdigest(),texture_sha256=hashlib.sha256(atlas).hexdigest(),blp_bytes=(output/'DarkSchoolbag.blp').stat().st_size)
-    (ROOT/'native/BAG-ASSETS.json').write_text(json.dumps(report,indent=2)+'\n')
+    # The complete, stable catalog manifest belongs to build_bag_catalog.py.
+    # A one-model conversion must not overwrite that manifest or drop other bags.
     print(json.dumps(report))

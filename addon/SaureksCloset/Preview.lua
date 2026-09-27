@@ -1,5 +1,38 @@
 -- Item-browser drafts are temporary transactions on both preview models.
 local V=VanityStudio
+-- Keep mouse capture on a separate frame: the visible model can change while
+-- its replacement finishes loading, including in the middle of a drag.
+function V:CreatePreviewDragSurface(parent,modelKey,bufferKey)
+    local model,buffer=self[modelKey],self[bufferKey]
+    local surface=CreateFrame("Frame",nil,parent)
+    surface:SetAllPoints(model)
+    surface:SetFrameLevel(math.max(model:GetFrameLevel(),buffer:GetFrameLevel())+1)
+    model:EnableMouse(false);buffer:EnableMouse(false)
+    surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
+    local function stop() surface.cursorX=nil end
+    surface:SetScript("OnMouseDown",function()
+        if arg1=="LeftButton" then surface.cursorX=GetCursorPosition() end
+    end)
+    surface:SetScript("OnMouseUp",function() if arg1=="LeftButton" then stop() end end)
+    -- Registering the drag keeps window movement on the window's own frame.
+    surface:SetScript("OnDragStart",function() end)
+    surface:SetScript("OnDragStop",stop)
+    surface:SetScript("OnHide",stop)
+    surface:SetScript("OnUpdate",function()
+        if not surface.cursorX then return end
+        local x=GetCursorPosition()
+        local delta=(x-surface.cursorX)/surface:GetEffectiveScale()
+        surface.cursorX=x
+        if delta==0 then return end
+        local current=V[modelKey]
+        local rotation=math.mod((current.rotation or .61)+delta*.01,2*math.pi)
+        if rotation<0 then rotation=rotation+2*math.pi end
+        for _,target in ipairs({current,V[bufferKey]}) do
+            target.rotation=rotation;target:SetRotation(rotation)
+        end
+    end)
+    return surface
+end
 function V:ApplyWorldDraft()
     local draft=self.draft
     if not draft then return false end

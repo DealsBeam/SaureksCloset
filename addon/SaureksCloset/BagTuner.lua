@@ -1,4 +1,4 @@
--- Debug fit data is separate from saved looks and actual character equipment.
+-- Weapon fits retain their account profiles; bag-instance fits belong to looks.
 local V=VanityStudio
 V.bagTunerFields={
     {key="left",label="Left / right",step=.005,min=-1,max=1,decimals=4,help="Positive moves toward the character's left. Negative moves right."},
@@ -7,11 +7,16 @@ V.bagTunerFields={
     {key="pitch",label="Inward tilt",step=1,min=-180,max=180,decimals=1,help="Degrees around the lateral axis. Positive pulls the bottom inward toward the back."},
     {key="roll",label="Side tilt",step=1,min=-180,max=180,decimals=1,help="Degrees of side tilt. Positive moves the bottom toward the character's right."},
     {key="yaw",label="Twist",step=1,min=-180,max=180,decimals=1,help="Degrees of rotation around the item's upright axis."},
-    {key="scale",label="Size (%)",step=1,min=25,max=200,decimals=1,help="Percentage of the original size. Weapons default to 100%; the bag defaults to 85%."},
+    {key="scale",label="Size (%)",step=1,min=25,max=200,decimals=1,help="Percentage of the original size. Weapons default to 100%; bags start at 85% on the back or 70% on a hip."},
 }
 local function keyFor(bag,race,sex) return bag..":"..race..":"..sex end
 local function validIdentity(bag,race,sex)
-    return (bag==1 or (type(bag)=="number" and bag>=101 and bag<=107 and bag==math.floor(bag))) and type(race)=="number" and race>=1 and race<=8 and race==math.floor(race) and (sex==0 or sex==1)
+    return (bag==1 or (type(bag)=="number" and ((bag>=101 and bag<=107) or (bag>=201 and bag<=208)) and bag==math.floor(bag))) and type(race)=="number" and race>=1 and race<=8 and race==math.floor(race) and (sex==0 or sex==1)
+end
+local function instanceFor(target) return type(target)=="number" and target>=201 and target<=208 and V.BagInstance and V:BagInstance(target-200) end
+local function draftKey(target,race,sex)
+    local bag=instanceFor(target)
+    return bag and V:BagDraftKey(bag,race,sex) or keyFor(target,race,sex)
 end
 local function targets() return V:WeaponTuningAvailable() and {1,101,102,103,104,105,106,107} or {1} end
 function V:WeaponTuningAvailable()
@@ -51,15 +56,22 @@ function V:BagTunerStore()
     return store
 end
 function V:BagTunerSaved(bag,race,sex)
+    local instance=instanceFor(bag)
+    if instance then
+        local values=instance.fits and instance.fits[race..":"..sex]
+        if validValues(values) then return {schema=1,bag=bag,model=instance.model,mount=instance.mount,race=race,sex=sex,values=values} end
+        return nil
+    end
     local store=self:BagTunerStore();local saved=store and store.fits[keyFor(bag,race,sex)]
     if type(saved)=="table" and saved.schema==1 and saved.bag==bag and saved.race==race and saved.sex==sex and validValues(saved.values) then return saved end
 end
 function V:BagTunerDefaults(bag,race,sex)
     if not self:BagTuningAvailable() or not validIdentity(bag,race,sex) then return nil end
     self.bagTunerDefaults=self.bagTunerDefaults or {}
-    local key=keyFor(bag,race,sex)
+    local instance=instanceFor(bag)
+    local key=keyFor(bag,race,sex)..(instance and ":"..instance.mount or "")
     if self.bagTunerDefaults[key] then return self:Copy(self.bagTunerDefaults[key]) end
-    local ok,status,left,inset,up,pitch,roll,yaw,scale=pcall(SaureksClosetGetBagFitDefaults,bag,race,sex)
+    local ok,status,left,inset,up,pitch,roll,yaw,scale=pcall(SaureksClosetGetBagFitDefaults,bag,race,sex,instance and self.bagMounts[instance.mount] or 0)
     local values={left=left,inset=inset,up=up,pitch=pitch,roll=roll,yaw=yaw,scale=scale}
     if not ok or status~=1 or not validValues(values) then return nil end
     self.bagTunerDefaults[key]=self:Copy(values);return values
@@ -68,7 +80,8 @@ function V:BagTunerIdentity()
     local c=VanityStudioCharacter or {}
     local body=c.enabled and c.body or nil
     if not body then body=self:NativeBody() end
-    local target=self.placementTunerSlot or 1
+    if self.placementTunerBag and not self:BagInstance(self.placementTunerBag) then return nil end
+    local target=self.placementTunerBag and 200+self.placementTunerBag or self.placementTunerSlot or 1
     if not body or not validIdentity(target,body.race,body.sex) then return nil end
     return target,body.race,body.sex
 end
@@ -100,11 +113,21 @@ function V:SyncBagTuning()
             else failure="The placement renderer is not ready. Your values are kept; retrying." end
         end
     end end end
+    if self.SyncLiveBagFits and not self:SyncLiveBagFits() then failure="The bag renderer is not ready. Your values are kept; retrying." end
     self.bagTunerError=failure;return not failure
 end
 function V:GetBagTunerState()
     local result={available=false,title="Placement Tuner",values={},saved=false,dirty=false,enabled=false,paused=self.bagTunerPaused and true or false}
+    local emptySlot=self.bagTunerWindow and self.bagTunerWindow.emptySlot
+    if emptySlot then
+        -- Selecting a model for an empty slot must never initialize or edit
+        -- the legacy single-bag fit while there is no instance to tune.
+        result.emptySlot=emptySlot;result.key="empty:"..emptySlot;result.title="Choose a bag";result.status=""
+        if not self:MultiBagRendererAvailable() then result.status="Fully restart WoW with the updated DLL to add bags." end
+        return result
+    end
     if not self:BagTuningAvailable() then result.status="Update SaureksCloset.dll and fully restart WoW to use the tuner.";return result end
+    if self.placementTunerBag and not self:MultiBagRendererAvailable() then result.status="Fully restart WoW with the updated DLL to tune each bag.";return result end
     if self.placementTunerSlot and not self:WeaponTuningAvailable() then result.status="Fully restart WoW with the updated DLL to tune weapons and quivers.";return result end
     local store=self:BagTunerStore()
     if not store then result.status="Saved tuner data uses an unsupported format; it has been preserved.";return result end
@@ -112,19 +135,21 @@ function V:GetBagTunerState()
     if not bag then result.status="Waiting for your character model.";return result end
     local defaults=self:BagTunerDefaults(bag,race,sex)
     if not defaults then result.status="The built-in placement fit is not ready yet.";return result end
-    local key=keyFor(bag,race,sex);local saved=self:BagTunerSaved(bag,race,sex)
+    local instance=instanceFor(bag)
+    local key=draftKey(bag,race,sex);local saved=self:BagTunerSaved(bag,race,sex)
     self.bagTunerDrafts=self.bagTunerDrafts or {}
     if not self.bagTunerDrafts[key] then self.bagTunerDrafts[key]=self:Copy(saved and saved.values or defaults) end
     self.bagTunerTargetKey=key;self:SyncBagTuning()
     result.available=true;result.bag=bag;result.race=race;result.sex=sex;result.key=key
-    result.title=(bag==1 and "Runecloth Bag" or self.slotNames[bag]).." - "..VanityStudioRaces[race][1]..(sex==0 and " Male" or " Female")
+    local name=instance and self.bagCatalogByID[instance.model].name or (bag==1 and "Runecloth Bag" or self.slotNames[bag])
+    result.title=name.." - "..VanityStudioRaces[race][1]..(sex==0 and " Male" or " Female")
     result.values=self:Copy(self.bagTunerDrafts[key]);result.saved=saved~=nil
     result.dirty=not sameValues(result.values,saved and saved.values or defaults);result.enabled=store.enabled~=false
-    result.status=result.dirty and "Unsaved changes - this session only." or (saved and "Saved fit loaded." or "Built-in fit. Adjust, then Save Fit.")
+    result.status=result.dirty and "Unsaved changes - this session only." or ""
     if not result.enabled then result.status="Live tuning is off. The built-in fits are in use."
     elseif not VanityStudioCharacter.enabled then result.status="Enable the wardrobe to see placement changes."
     elseif bag==1 and (not VanityStudioCharacter.weapons or VanityStudioCharacter.weapons.backBag~=1) then result.status="Select Runecloth Bag to see changes."
-    elseif bag~=1 and not (VanityStudioCharacter.weapons or {})[bag] then result.status="Select a Custom Item for this slot to tune its stored placement."
+    elseif not instance and bag~=1 and not (VanityStudioCharacter.weapons or {})[bag] then result.status="Select a Custom Item for this slot to tune its stored placement."
     elseif self.bagTunerError then result.status=self.bagTunerError end
     return result
 end
@@ -146,6 +171,13 @@ function V:SetBagTunerPaused(paused)
 end
 function V:SaveBagTunerFit()
     local state=self:GetBagTunerState();if not state.available then return false,state.status end
+    local instance=instanceFor(state.bag)
+    if instance then
+        instance.fits=instance.fits or {};instance.fits[state.race..":"..state.sex]=self:Copy(state.values)
+        self:TrackUnsaved();self:SyncBagTuning();self:Refresh()
+        self:Message("Bag fit saved to this look. Save the look in Outfits to keep a named copy.")
+        return true
+    end
     local saved={schema=1,bag=state.bag,race=state.race,sex=state.sex,values=self:Copy(state.values),renderer=rendererVersion(),savedAt=timestamp()}
     self:BagTunerStore().fits[state.key]=saved
     self:Message("Placement fit saved for "..VanityStudioRaces[state.race][1]..(state.sex==0 and " Male" or " Female")..". Log out or /reload to write SavedVariables; Export makes a report now.")
@@ -182,13 +214,16 @@ local function fitJSON(record)
     for _,field in ipairs(V.bagTunerFields) do table.insert(fields,'"'..field.key..'": '..string.format("%.6f",record.values[field.key])) end
     local version=tonumber(record.renderer)
     if not version or not (version>=30510 and version<=2147483647) or math.floor(version)~=version then version=rendererVersion() end
-    local target=record.bag or 1
-    return '{"bag": '..target..', "slot": '..quote(target==1 and "back_top_left" or V.slotNames[target])..', "race": '..record.race..', "sex": '..record.sex..', "renderer": '..version..', "savedAt": '..quote(record.savedAt)..', "values": {'..table.concat(fields,", ")..'}}'
+    local target=record.bag or 1;local instance=instanceFor(target)
+    local slot=instance and ("bag_"..instance.id.."_"..instance.mount) or (target==1 and "back_top_left" or V.slotNames[target])
+    return '{"bag": '..target..', "slot": '..quote(slot)..(instance and (', "model": '..instance.model) or '')..', "race": '..record.race..', "sex": '..record.sex..', "renderer": '..version..', "savedAt": '..quote(record.savedAt)..', "values": {'..table.concat(fields,", ")..'}}'
 end
 function V:ExportBagTunerFits()
     local state=self:GetBagTunerState();if not state.available then self:Message(state.status);return nil end
     local records={}
-    for _,target in ipairs(targets()) do for race=1,8 do for sex=0,1 do
+    local exportTargets=targets()
+    if self.GetBags then for _,bag in ipairs(self:GetBags()) do table.insert(exportTargets,200+bag.id) end end
+    for _,target in ipairs(exportTargets) do for race=1,8 do for sex=0,1 do
         local saved=self:BagTunerSaved(target,race,sex);if saved then table.insert(records,"    "..fitJSON(saved)) end
     end end end
     local current={bag=state.bag,race=state.race,sex=state.sex,values=state.values,renderer=rendererVersion(),savedAt="unsaved draft"}

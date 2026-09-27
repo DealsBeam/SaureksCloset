@@ -1,12 +1,12 @@
 #pragma once
+#include "BagCatalog.h"
 // Build 5875 disables ordinary loose-file searches at startup. Route only our
-// two shipped bag assets to the client's existing disk-file handle path.
+// catalog's shipped bag assets to the client's existing disk-file handle path.
 using ResolveAssetFile=int (__fastcall *)(const char*,char*,unsigned,unsigned,unsigned*,void**);
 static ResolveAssetFile resolveAssetFileOriginal=nullptr;
 static const char* bagAssetFile(const char* filename){
     if(!filename)return nullptr;
-    for(const char* allowed:{"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.m2",
-                             "Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.blp"}){
+    for(const char* allowed:bagAssetFiles){
         unsigned i=0;
         for(;allowed[i]&&filename[i];++i){
             auto a=allowed[i],b=filename[i];

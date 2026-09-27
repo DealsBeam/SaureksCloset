@@ -180,17 +180,60 @@ function V:MoveLauncher()
     self.launcher:ClearAllPoints()
     self.launcher:SetPoint("CENTER",Minimap,"CENTER",math.cos(angle)*80,math.sin(angle)*80)
 end
+function V:RefreshAddon()
+    if type(ReloadUI)~="function" then self:Message("The interface refresh is unavailable.");return false end
+    local tuner=self.bagTunerWindow
+    if tuner then
+        -- Clicking the minimap can move focus before its menu action runs.
+        -- Keep a rejected value from turning into an unnoticed reload.
+        if tuner.invalidInput and not (tuner.invalidEditor and tuner.invalidEditor.editing) then
+            self:Message(tuner.message or "Correct the tuner value before refreshing the addon.");return false
+        end
+        for _,row in ipairs(tuner.rows) do
+            if row.editor.editing then
+                local accepted=self:CommitBagTunerEditor(row.editor);row.editor:ClearFocus()
+                if not accepted then
+                    self:Message(tuner.message or "Correct the tuner value before refreshing the addon.");return false
+                end
+            end
+        end
+        if tuner.invalidInput then
+            self:Message(tuner.message or "Correct the tuner value before refreshing the addon.");return false
+        end
+    end
+    -- Preserve the current appearance in character data without replacing a
+    -- named saved look. The normal save preparation includes live bag fits.
+    local ok,err=self:PrepareLookForSave()
+    if not ok then self:Message(err);return false end
+    if VanityStudioCharacter.activeUnsaved then self:TrackUnsaved() end
+    ReloadUI();return true
+end
 function V:CreateLauncher()
     if self.launcher then return end
     local b=CreateFrame("Button","SaureksClosetMinimapButton",Minimap)
     self.launcher=b;b:SetWidth(31);b:SetHeight(31);b:SetFrameStrata("MEDIUM")
-    b:RegisterForClicks("LeftButtonUp");b:RegisterForDrag("LeftButton")
+    b:RegisterForClicks("LeftButtonUp","RightButtonUp");b:RegisterForDrag("LeftButton")
     b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     local icon=b:CreateTexture(nil,"BACKGROUND");icon:SetWidth(20);icon:SetHeight(20)
     icon:SetPoint("TOPLEFT",b,"TOPLEFT",7,-5)
     icon:SetTexture(art.."MiniLogo.tga")
     texture(b,"Interface\\Minimap\\MiniMap-TrackingBorder",0,0,54,54,"OVERLAY")
-    b:SetScript("OnClick",function() if arg1=="LeftButton" then V:Toggle() end end)
+    local menu=CreateFrame("Frame","SaureksClosetMinimapMenu",b)
+    self.launcherMenu=menu;menu.displayMode="MENU";menu:Hide()
+    menu.initialize=function()
+        UIDropDownMenu_AddButton({text="Toggle Addon",checked=VanityStudioCharacter.enabled and 1 or nil,
+            tooltipTitle="Toggle Addon",tooltipText="Turn your local cosmetic appearances on or off.",
+            func=function() V:SetEnabled(not VanityStudioCharacter.enabled) end})
+        -- Keep the native check gutter so both menu labels share one alignment.
+        UIDropDownMenu_AddButton({text="Refresh Addon",
+            tooltipTitle="Refresh Addon",tooltipText="Reload the interface to refresh the addon while keeping your current look and unsaved bag fits.",
+            func=function() V:RefreshAddon() end})
+    end
+    b:SetScript("OnClick",function()
+        if arg1=="RightButton" then
+            GameTooltip:Hide();ToggleDropDownMenu(1,nil,menu,b:GetName(),0,0)
+        elseif arg1=="LeftButton" then V:Toggle() end
+    end)
     b:SetScript("OnDragStart",function() this.dragging=true end)
     b:SetScript("OnDragStop",function() this.dragging=nil end)
     b:SetScript("OnUpdate",function()
@@ -201,6 +244,7 @@ function V:CreateLauncher()
     b:SetScript("OnEnter",function()
         GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText("Saurek's Closet",1,.82,0)
         GameTooltip:AddLine("Left-click: open wardrobe",1,1,1)
+        GameTooltip:AddLine("Right-click: addon options",1,1,1)
         GameTooltip:AddLine("Drag around the minimap.",1,1,1);GameTooltip:Show()
     end)
     b:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -227,9 +271,9 @@ function V:SetTab(tab)
     self:CloseOutfitMenu();self:CloseOutfitDetails();self:CloseBrowser();self.tab=tab
     self.selectedOutfit=nil;self.confirmDelete=nil
     local character=tab=="armor" or tab=="body" or tab=="weaponry" or tab=="bags" or tab=="exposure"
-    local modelPage=tab=="armor" or tab=="body" or tab=="bags" or tab=="exposure"
-    local sideControls=tab=="body" or tab=="bags" or tab=="exposure"
-    local leftPane=tab=="body" or tab=="bags"
+    local modelPage=tab=="armor" or tab=="body" or tab=="exposure"
+    local sideControls=tab=="body" or tab=="exposure"
+    local leftPane=tab=="body"
     if character then self.wardrobePage=tab end
     for name,p in pairs(self.pagesByName) do
         if name==tab or (name=="armor" and modelPage) then p:Show() else p:Hide() end
@@ -241,7 +285,7 @@ function V:SetTab(tab)
     if character then
         self.wardrobeSelectorBox:Show()
         -- Weaponry uses the space normally occupied by the swivel buttons.
-        local wide=tab=="weaponry"
+        local wide=tab=="weaponry" or tab=="bags"
         self.wardrobeSelectorBox:ClearAllPoints()
         self.wardrobeSelectorBox:SetPoint("TOP",self.frame,"TOP",wide and -12 or -44,-392)
         self.wardrobeSelectorBox:SetWidth(wide and 176 or 106)
@@ -266,6 +310,11 @@ function V:SetTab(tab)
         if sideControls then self.wardrobeViewBorder:Show() else self.wardrobeViewBorder:Hide() end
     end
     if self.wardrobeViewShadowFrame then
+        -- Body's full-width model fade repaints the scenery. Keep the frame's
+        -- shadow above that repaint so its lower edge stays visible.
+        local shadowLevel=self.pagesByName.armor:GetFrameLevel()+1
+        if tab=="body" then shadowLevel=self.bodyPreviewFade:GetFrameLevel()+1 end
+        self.wardrobeViewShadowFrame:SetFrameLevel(shadowLevel)
         if sideControls then self.wardrobeViewShadowFrame:Show() else self.wardrobeViewShadowFrame:Hide() end
     end
     local modelX=tab=="body" and 129 or sideControls and 96 or 61
@@ -361,14 +410,15 @@ function V:CreateUI()
         GameTooltip:AddLine("Click to switch saved outfits.",1,.82,0);GameTooltip:Show()
     end)
     selector:SetScript("OnLeave",function() GameTooltip:Hide() end)
-    -- Keep the master toggle's geometry while using the native red panel button.
-    local toggle=button(f,"",262,42,76,function() V:SetEnabled(not VanityStudioCharacter.enabled) end)
+    -- Save occupies the original top action's native red button geometry.
+    local toggle=button(f,"Save",262,42,76,function() V:SaveWardrobeLook() end)
     toggle:SetHeight(25)
     -- Keep the top edge fixed; extend the native red artwork down by 2px.
     for _,part in ipairs({"Left","Middle","Right"}) do
         getglobal(toggle:GetName()..part):SetHeight(25)
     end
     self.enabledButton=toggle
+    self.saveLookButton=toggle
     toggle.caption=getglobal(toggle:GetName().."Text")
     toggle.caption:SetHeight(17)
     toggle.caption:ClearAllPoints();toggle.caption:SetPoint("CENTER",toggle,"CENTER",0,0)
@@ -379,9 +429,10 @@ function V:CreateUI()
     toggle:SetScript("OnEnter",function()
         toggleHover:Show()
         GameTooltip:SetOwner(this,"ANCHOR_RIGHT")
-        GameTooltip:SetText("Toggle the addon completely on/off.",1,1,1);GameTooltip:Show()
+        GameTooltip:SetText("Save your latest changes to your active saved look",1,1,1);GameTooltip:Show()
     end)
     toggle:SetScript("OnLeave",function() toggleHover:Hide();GameTooltip:Hide() end)
+    self:RefreshWardrobeSaveButton()
     toggle:SetScript("OnHide",function() toggleHover:Hide() end)
     -- ToggleDropDownMenu accepts a named owner with an initializer and explicit anchor.
     self.outfitMenu=CreateFrame("Frame","SaureksClosetOutfitMenu",f)
@@ -507,6 +558,7 @@ function V:CreateArmorPage(p)
     buffer:SetPoint("TOPLEFT",p,"TOPLEFT",61,-86);buffer:SetWidth(244);buffer:SetHeight(340);buffer:SetAlpha(0)
     self.previewBuffer=buffer
     m:SetFrameLevel(p:GetFrameLevel()+2);buffer:SetFrameLevel(p:GetFrameLevel()+2)
+    self.previewDragSurface=self:CreatePreviewDragSurface(p,"model","previewBuffer")
     -- Repaint the exact underlying wardrobe art above the lower part of the
     -- Body preview. Graduated opacity makes the bust disappear into the scene
     -- without a straight crop, while leaving other preview pages untouched.
@@ -778,13 +830,17 @@ end
 function V:CreateWeaponOptions(parent)
     local options=CreateFrame("Frame",nil,parent);self.weaponModeOptions=options
     options:SetPoint("TOPLEFT",parent,"TOPLEFT",23,-366);options:SetWidth(318);options:SetHeight(22)
+    -- Let the live font determine its width; copying a measured width back
+    -- into the caption can clip its final glyphs when the client rounds it.
+    local caption=options:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    caption:SetHeight(22)
+    caption:SetFont("Fonts\\FRIZQT__.TTF",11);caption:SetText("Advanced mode")
+    caption:SetPoint("CENTER",options,"CENTER",12,0)
+    caption:SetJustifyH("CENTER");caption:SetJustifyV("MIDDLE")
     local checkbox=CreateFrame("CheckButton","SaureksClosetWeaponAdvancedMode",options,"UICheckButtonTemplate")
     self.weaponAdvancedCheckbox=checkbox
-    checkbox:SetPoint("TOPLEFT",options,"TOPLEFT",8,0);checkbox:SetWidth(22);checkbox:SetHeight(22)
-    checkbox:SetHitRectInsets(0,-124,0,0)
-    local caption=label(options,"Advanced mode",0,0,124,22,true)
-    caption:ClearAllPoints();caption:SetPoint("LEFT",checkbox,"RIGHT",2,0);caption:SetJustifyV("MIDDLE")
-    caption:SetFont("Fonts\\FRIZQT__.TTF",11)
+    checkbox:SetPoint("RIGHT",caption,"LEFT",-2,0);checkbox:SetWidth(22);checkbox:SetHeight(22)
+    checkbox:SetHitRectInsets(0,-(10+math.ceil(caption:GetWidth())),0,0)
     checkbox:SetScript("OnClick",function() V:SetWeaponAdvancedMode(this:GetChecked()) end)
     checkbox:SetScript("OnEnter",function()
         GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Advanced mode",1,.82,0)
@@ -802,50 +858,95 @@ function V:CloseWeaponOptions()
     -- Kept for shared browser/page cleanup; inline options must stay visible.
     self:ReleaseNeighbor()
 end
+local bagMountNames={back="Back",leftHip="Left hip",rightHip="Right hip"}
+local function bagTooltip(owner,heading,text)
+    GameTooltip:SetOwner(owner,"ANCHOR_RIGHT");GameTooltip:SetText(heading,1,.82,0)
+    if text then GameTooltip:AddLine(text,1,1,1,true) end
+    GameTooltip:Show()
+end
 function V:CreateBagsPage(p)
     p:SetFrameLevel(self.frame:GetFrameLevel()+12)
-    local rail=sidebar(p,246);self.bagSidebar=rail
-    local back=sidebarGroup(rail,"Back",8,152)
-    local hips=sidebarGroup(rail,"Hips",168,76)
-    self.bagDescription=nil
-    self.bagSlots={}
-    local positions={{"Top Left",back,25,31},{"Center",back,56,70},{"Top Right",back,87,31},
-        {"Bottom Left",back,25,108},{"Bottom Right",back,87,108},{"Left Hip",hips,25,32},{"Right Hip",hips,87,32}}
-    for i,entry in ipairs(positions) do
-        local b=self:CreateSlotButton(entry[2],entry[2],200+i,entry[3],entry[4],24)
-        self.slotButtons[200+i]=nil;self.bagSlots[i]=b;b.selected:Hide()
-        b.icon:SetTexture("Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
-        local caption=label(entry[2],entry[1],entry[3]-13,entry[4]+25,50,13,true)
-        caption:SetFont("Fonts\\FRIZQT__.TTF",9);caption:SetJustifyH("CENTER")
-        b.bagTitle=entry[1];b.bagIndex=i
-        b:SetScript("OnEnter",function()
-            GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(this.bagTitle,1,.82,0)
-            local text=this.bagIndex==1 and ((VanityStudioCharacter.weapons or {}).backBag==1 and "Runecloth Bag" or "Choose a visible bag.") or "Not implemented yet."
-            GameTooltip:AddLine(text,1,1,1);GameTooltip:Show()
+    self.bagRows={}
+    self.bagNotice=label(p,"",31,70,302,12,true);self.bagNotice:SetFont("Fonts\\FRIZQT__.TTF",9)
+    for i=1,self.MAX_BAGS do
+        local row=section(p,23,83+(i-1)*60,318,56,false)
+        row.slot=i
+        row:SetBackdropColor(.45,.40,.32,.95)
+        self.bagRows[i]=row
+        row.selected=texture(row,"Interface\\QuestFrame\\UI-QuestTitleHighlight",4,4,310,48,"ARTWORK")
+        row.selected:SetBlendMode("ADD");row.selected:SetAlpha(.18);row.selected:Hide()
+        local choose=CreateFrame("Button",nil,row);row.choose=choose
+        choose:SetPoint("TOPLEFT",row,"TOPLEFT",4,-4);choose:SetWidth(280);choose:SetHeight(48)
+        choose:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
+        choose.slot=i
+        choose:SetScript("OnClick",function() V:OpenBagSlotTuner(this.slot) end)
+        choose:SetScript("OnEnter",function()
+            local bag=V:BagInstance(this.bagID);local model=bag and V.bagCatalogByID[bag.model]
+            if bag then bagTooltip(this,model and model.name or "Bag","Choose its model, color and fit in the bag tuner.")
+            else bagTooltip(this,"Bag slot "..this.slot,"Choose a bag, then customize its color and placement.") end
         end)
-        b:SetScript("OnClick",function() if this.bagIndex==1 then V:OpenBackBagMenu() end end)
-        if i~=1 then b:Disable();b:SetAlpha(.4);caption:SetAlpha(.4) end
+        choose:SetScript("OnLeave",function() GameTooltip:Hide() end)
+        local b=CreateFrame("Button",nil,choose);row.iconButton=b;b.slot=i
+        b:SetPoint("TOPLEFT",choose,"TOPLEFT",5,-4);b:SetWidth(40);b:SetHeight(40)
+        b.icon=texture(b,art.."BagIcon1.tga",0,0,40,40,"BORDER")
+        b.border=texture(b,"Interface\\Buttons\\UI-Quickslot2",0,0,40*64/37,40*64/37,"ARTWORK")
+        b.border:ClearAllPoints();b.border:SetPoint("CENTER",b,"CENTER",0,-40/37)
+        b:SetScript("OnClick",choose:GetScript("OnClick"));b:SetScript("OnEnter",choose:GetScript("OnEnter"));b:SetScript("OnLeave",choose:GetScript("OnLeave"))
+        row.title=label(choose,"",57,6,220,18)
+        row.title:SetFont("Fonts\\FRIZQT__.TTF",11);row.title:SetJustifyV("MIDDLE")
+        row.subtitle=label(choose,"",57,27,220,15,true)
+        row.subtitle:SetFont("Fonts\\FRIZQT__.TTF",10);row.subtitle:SetTextColor(.72,.70,.65)
+        local remove=CreateFrame("Button",nil,row);row.remove=remove
+        remove:SetPoint("TOPLEFT",row,"TOPLEFT",290,-16);remove:SetWidth(24);remove:SetHeight(24)
+        remove:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+        remove:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+        remove:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight","ADD")
+        remove:SetScript("OnClick",function() V:DeleteBag(this.bagID) end)
+        remove:SetScript("OnEnter",function()
+            local bag=V:BagInstance(this.bagID);local model=bag and V.bagCatalogByID[bag.model]
+            bagTooltip(this,"Remove "..(model and model.name or "bag"),"Remove only this bag from the current look.")
+        end)
+        remove:SetScript("OnLeave",function() GameTooltip:Hide() end)
     end
-    local menu=CreateFrame("Frame","SaureksClosetBackBagMenu",self.frame)
-    self.backBagMenu=menu;menu.displayMode="MENU";menu:Hide()
-    menu.initialize=function()
-        local id=(VanityStudioCharacter.weapons or {}).backBag
-        UIDropDownMenu_AddButton({text="None",checked=not id and 1 or nil,func=function() V:SelectBackBag(nil) end})
-        UIDropDownMenu_AddButton({text="Runecloth Bag",checked=id==1 and 1 or nil,func=function() V:SelectBackBag(1) end})
-        UIDropDownMenu_AddButton({text="Placement Tuner",notCheckable=1,func=function() CloseDropDownMenus();V:OpenBagTuner() end})
-    end
-    self.bagSlots[1]:SetScript("OnHide",function() V.bagSlots[1].selected:Hide();CloseDropDownMenus() end)
-    self.bagTunerButton=settingsButton(p,"Bag Tuner",0,90,nil,function() V:OpenBagTuner() end,.75,26)
-    self.bagTunerButton:ClearAllPoints()
-    self.bagTunerButton:SetPoint("TOPLEFT",p,"TOPLEFT",336-self.bagTunerButton:GetWidth(),-90)
     self:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
 end
-function V:OpenBackBagMenu()
-    self:WatchSlotMenuDismissal()
-    GameTooltip:Hide()
-    self:CloseBrowser()
-    ToggleDropDownMenu(1,nil,self.backBagMenu,self.bagSlots[1]:GetName(),0,0)
-    self:RefreshSlotHighlights()
+function V:EditBag(id)
+    if not self:BagInstance(id) or not self:MultiBagRendererAvailable() then return end
+    CloseDropDownMenus();GameTooltip:Hide()
+    self:OpenBagTuner(id)
+end
+function V:RefreshBagsPage()
+    if not self.bagRows then return end
+    local available=self:MultiBagRendererAvailable()
+    self.bagNotice:SetText(not available and "Update SaureksCloset.dll and restart WoW." or self.bagError or "")
+    for i,row in ipairs(self.bagRows) do
+        local bag=self:BagInSlot(i)
+        row.bagID=bag and bag.id or nil
+        if bag then
+            local model=self.bagCatalogByID[bag.model]
+            local choice=self:BagModelChoice(bag.model);local color=self:BagModelColor(bag.model)
+            row.title:SetText(choice and choice.name or model and model.name or "Bag")
+            row.title:SetTextColor(1,.82,0)
+            row.iconButton.icon:SetTexture(model and model.icon or art.."BagIcon1.tga")
+            row.iconButton.icon:SetAlpha(1)
+            row.subtitle:SetText((color and (color.name.."  |  ") or "")..(bagMountNames[bag.mount] or "Back"))
+            row.remove:Show()
+        else
+            row.title:SetText("Bag slot "..i);row.title:SetTextColor(.72,.67,.56)
+            row.subtitle:SetText("Click to choose a bag")
+            row.iconButton.icon:SetTexture("Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
+            row.iconButton.icon:SetAlpha(.6)
+            row.remove:Hide()
+        end
+        local tuner=self.bagTunerWindow
+        local selected=tuner and tuner:IsShown() and ((bag and self.placementTunerBag==bag.id) or (not bag and tuner.emptySlot==i))
+        if selected then row.selected:Show();row:SetBackdropBorderColor(.95,.76,.36)
+        else row.selected:Hide();row:SetBackdropBorderColor(bag and .6 or .4,bag and .55 or .37,bag and .45 or .31) end
+        for _,control in ipairs({row.choose,row.iconButton,row.remove}) do
+            control.bagID=row.bagID;enabled(control,available and (control~=row.remove or bag~=nil))
+        end
+        row:SetAlpha(available and 1 or .45);row:Show()
+    end
 end
 function V:CreateExposurePage(p)
     p:SetFrameLevel(self.frame:GetFrameLevel()+12)
@@ -855,10 +956,6 @@ function V:CreateExposurePage(p)
 end
 function V:RefreshSlotHighlights()
     if not self.slotButtons then return end
-    if self.bagSlots then
-        local active=self.tab=="bags" and UIDROPDOWNMENU_OPEN_MENU==self.backBagMenu:GetName() and DropDownList1:IsShown()
-        if active then self.bagSlots[1].selected:Show() else self.bagSlots[1].selected:Hide() end
-    end
     local slot
     if self.frame and self.frame:IsVisible() then
         if self.slotMenu and UIDROPDOWNMENU_OPEN_MENU==self.slotMenu:GetName() and DropDownList1:IsShown() then
@@ -936,14 +1033,17 @@ function V:CreateBrowser()
     f:SetScript("OnDragStop",function() this:StopMovingOrSizing() end)
     f:SetScript("OnShow",function() V:RefreshPortraits() end)
     f.close:SetScript("OnClick",function() V:CloseBrowser();V:Refresh() end)
-    self.commitButton=button(f,"Apply Appearance",206,44,132,function() V:CommitDraft();V:Refresh() end)
-    local filters=section(f,23,79,318,100,true)
-    self.search=edit(filters,"SaureksClosetSearch",15,10,293)
-    -- InputBoxTemplate extends 5px left: these bounds give 10px outer margins.
+    -- Results end at y=403; the native window trim begins at y=430.
+    -- The button's visible artwork is inset 1px at the top, so y=405
+    -- leaves exactly 3px on either side of its visible 21px height.
+    self.commitButton=button(f,"Apply Appearance",206,405,132,function() V:CommitDraft();V:Refresh() end)
+    local filters=section(f,23,79,318,60,true)
+    self.search=edit(f,"SaureksClosetSearch",90,44,245)
+    -- InputBoxTemplate extends 5px left: keep the header input clear of the portrait.
     -- The text starts 5px inside that border; reserve the same inset on the right.
     self.search:SetTextInsets(0,5,0,0)
     self.search:SetFont("Fonts\\FRIZQT__.TTF",12)
-    self.searchHint=label(self.search,"Search Item DB...",0,0,288,22,true)
+    self.searchHint=label(self.search,"Search Item DB...",0,0,240,22,true)
     self.searchHint:SetFont("Fonts\\FRIZQT__.TTF",12);self.searchHint:SetJustifyV("MIDDLE")
     self.searchHint:SetTextColor(1,1,1,.45)
     local function updateHint()
@@ -953,7 +1053,7 @@ function V:CreateBrowser()
     self.search:SetScript("OnEditFocusGained",function() V.searchFocused=true;updateHint() end)
     self.search:SetScript("OnEditFocusLost",function() V.searchFocused=nil;updateHint() end)
     local function filterSelector(kind,name,x,width)
-        local box=section(filters,x,39,width,27,true)
+        local box=section(filters,x,4,width,27,true)
         local text=label(box,"",8,5,width-34,17,true)
         text:SetFont("Fonts\\FRIZQT__.TTF",11);text:SetJustifyV("MIDDLE")
         local control=CreateFrame("Button",name,box);control:SetAllPoints(box)
@@ -966,8 +1066,8 @@ function V:CreateBrowser()
     end
     self.qualityButton,self.qualityLabel,self.qualityMenu=filterSelector("quality","SaureksClosetQualityFilter",7,148)
     self.materialButton,self.materialLabel,self.materialMenu=filterSelector("material","SaureksClosetTypeFilter",159,152)
-    local listHeight=245 -- Leave 3px between the raised tile and the pane bottom.
-    local list=section(f,23,183,318,listHeight)
+    local listHeight=260 -- Nine complete item rows, with room for Apply below.
+    local list=section(f,23,143,318,listHeight)
     local rail="Interface\\PaperDollInfoFrame\\UI-Character-ScrollBar"
     local backing=texture(list,"Interface\\ClassTrainerFrame\\UI-ClassTrainer-ScrollBar",314,4,4,listHeight-8,"ARTWORK")
     backing:SetTexCoord(26/64,30/64,28/128,100/128)
@@ -990,7 +1090,7 @@ function V:CreateBrowser()
     end)
     f:EnableMouseWheel(true)
     f:SetScript("OnMouseWheel",function() V.offset=math.max(0,math.min(V.maxOffset or 0,V.offset-arg1*3));V:RefreshList() end)
-    self.rows={};self.visibleItemRows=8
+    self.rows={};self.visibleItemRows=9
     local rowHeight=(listHeight-8)/self.visibleItemRows
     for i=1,self.visibleItemRows do
         local b=CreateFrame("Button",nil,list)
@@ -1016,15 +1116,15 @@ function V:CreateBrowser()
         self.rows[i]=b
     end
     self.emptyLabel=label(list,"No matches. Clear the search or change the filters.",12,(listHeight-50)/2,272,50,true)
-    self.resultsLabel=label(filters,"",217,71,87,22,true)
+    self.resultsLabel=label(filters,"",217,33,87,22,true)
     self.resultsLabel:SetFont("Fonts\\FRIZQT__.TTF",10)
     self.resultsLabel:SetTextColor(.85,.85,.85)
     self.resultsLabel:SetJustifyH("RIGHT");self.resultsLabel:SetJustifyV("MIDDLE")
     local checkbox=CreateFrame("CheckButton","SaureksClosetHideHigherLevelItems",filters,"UICheckButtonTemplate")
     self.hideHigherLevelCheckbox=checkbox
-    checkbox:SetPoint("TOPLEFT",filters,"TOPLEFT",7,-70);checkbox:SetWidth(24);checkbox:SetHeight(24)
+    checkbox:SetPoint("TOPLEFT",filters,"TOPLEFT",7,-32);checkbox:SetWidth(24);checkbox:SetHeight(24)
     checkbox:SetHitRectInsets(0,-174,0,0)
-    self.hideHigherLevelLabel=label(filters,"Hide Higher Level Items",34,71,171,22,true)
+    self.hideHigherLevelLabel=label(filters,"Hide Higher Level Items",34,33,171,22,true)
     self.hideHigherLevelLabel:SetJustifyV("MIDDLE")
     checkbox:SetScript("OnClick",function() V:SetHideHigherLevelItems(this:GetChecked()) end)
     checkbox:SetScript("OnEnter",function()
@@ -1062,6 +1162,44 @@ function V:CreateBodyPage(p)
     local function group(title,y,height)
         return sidebarGroup(rail,title,y,height)
     end
+    local function bodyArrow(parent,direction,control,callback)
+        serial=serial+1
+        local b=CreateFrame("Button","SaureksClosetBodyArrow"..serial,parent)
+        b:SetWidth(24);b:SetHeight(24)
+        -- A small open chevron sits inside the larger click target. Mirroring
+        -- one glyph keeps both shapes, shading and vertical centers identical.
+        if direction=="Prev" then b:SetPoint("RIGHT",control,"LEFT",-3,0)
+        else b:SetPoint("LEFT",control,"RIGHT",3,0) end
+        local function glyph(offset,r,g,blue,alpha)
+            -- In 1.12 a failed file-string setter leaves the button's texture
+            -- slot nil. Retain the region ourselves, including when new addon
+            -- artwork is not yet visible to the running client's file cache.
+            local t=b:CreateTexture(nil,"ARTWORK")
+            local loaded=t:SetTexture(art.."BodyChevron.tga")
+            if not loaded then
+                t:SetTexture("Interface\\MoneyFrame\\Arrow-"..(direction=="Prev" and "Left" or "Right").."-Up")
+            end
+            t:ClearAllPoints();t:SetPoint("CENTER",b,"CENTER",offset,-offset)
+            local size=loaded and 14 or 12
+            t:SetWidth(size);t:SetHeight(size);t:SetVertexColor(r,g,blue,alpha)
+            if not loaded then t:SetTexCoord(0,1,0,1)
+            elseif direction=="Prev" then t:SetTexCoord(1,0,0,1)
+            else t:SetTexCoord(0,1,0,1) end
+            return t
+        end
+        b:SetNormalTexture(glyph(0,1,1,1,1))
+        b:SetPushedTexture(glyph(1,.85,.85,.85,1))
+        b:SetDisabledTexture(glyph(0,.5,.5,.5,.45))
+        b:SetHighlightTexture(glyph(0,1,1,1,.24),"ADD")
+        b:SetScript("OnClick",callback)
+        b:SetScript("OnEnter",function()
+            GameTooltip:SetOwner(this,"ANCHOR_RIGHT")
+            GameTooltip:SetText(direction=="Prev" and "Previous option" or "Next option",1,1,1);GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave",function() GameTooltip:Hide() end)
+        b:SetScript("OnHide",function() GameTooltip:Hide() end)
+        return b
+    end
     local function choice(box,key,index,prefix)
         local k=key;local y=24+(index-1)*27
         local control=CreateFrame("Button","SaureksClosetBody"..key,box)
@@ -1079,10 +1217,8 @@ function V:CreateBodyPage(p)
             V.bodyMenuKey=k
             ToggleDropDownMenu(1,nil,V.bodyMenu,this:GetName(),0,0)
         end)
-        local previous=arrow(box,"Prev",7,y+1,function() CloseDropDownMenus();V:CycleBody(k,-1) end)
-        local nextChoice=arrow(box,"Next",106,y+1,function() CloseDropDownMenus();V:CycleBody(k,1) end)
-        previous:SetWidth(24);previous:SetHeight(24)
-        nextChoice:SetWidth(24);nextChoice:SetHeight(24)
+        local previous=bodyArrow(box,"Prev",control,function() CloseDropDownMenus();V:CycleBody(k,-1) end)
+        local nextChoice=bodyArrow(box,"Next",control,function() CloseDropDownMenus();V:CycleBody(k,1) end)
         self.bodyRows[key]={value=value,button=control,previous=previous,next=nextChoice,prefix=prefix}
     end
     local character=group("Body",8,82)
@@ -1265,7 +1401,9 @@ function V:CreateOutfitDetails()
     for _,m in ipairs({self.outfitModel,self.outfitBuffer}) do
         m:SetPoint("TOPLEFT",f,"TOPLEFT",61,-78);m:SetWidth(244);m:SetHeight(246);m:SetAlpha(0);m.rotation=.61
     end
+    self.outfitPreviewDragSurface=self:CreatePreviewDragSurface(f,"outfitModel","outfitBuffer")
     local controls=CreateFrame("Frame",nil,f);controls:SetPoint("TOPLEFT",f,"TOPLEFT",20,-76);controls:SetWidth(70);controls:SetHeight(35)
+    controls:SetFrameLevel(self.outfitPreviewDragSurface:GetFrameLevel()+1)
     for i,direction in ipairs({"Left","Right"}) do
         local b=CreateFrame("Button","SaureksClosetOutfitModelRotate"..direction.."Button",controls)
         b:SetPoint("TOPLEFT",controls,"TOPLEFT",(i-1)*35,0);b:SetWidth(35);b:SetHeight(35)
@@ -1547,11 +1685,59 @@ function V:RefreshList()
     end
     enabled(self.commitButton,self.draft~=nil)
 end
-function V:ActivateSavedOutfit(name)
+function V:RefreshWardrobeSaveButton()
+    if not self.saveLookButton then return end
+    self.saveLookButton.caption:SetText("Save")
+    enabled(self.saveLookButton,self:HasUnsavedLookChanges())
+end
+function V:SaveWardrobeLook()
+    if not self:HasUnsavedLookChanges() then return false end
+    local name=self:ActiveSavedLookName()
+    if name then
+        local ok,err=self:SaveOutfit(name,true)
+        if ok then self:Message("Saved changes to "..name..".") else self:Message(err) end
+        return ok
+    end
+    local ok,err=self:PrepareLookForSave()
+    if not ok then self:Message(err);return false end
+    self:TrackUnsaved();self:SetTab("outfits")
+    if self.unsavedOutfitName then self.unsavedOutfitName:SetFocus() end
+    return true
+end
+function V:CancelLookChange()
+    self.pendingLookChange=nil
+    if type(StaticPopup_Hide)=="function" then StaticPopup_Hide("SAUREKS_CLOSET_DISCARD_LOOK") end
+end
+function V:ConfirmLookChange(name,activate)
+    if not self:GetOutfit(name) then return false end
+    self:CancelLookChange()
+    if type(StaticPopupDialogs)~="table" or type(StaticPopup_Show)~="function" then
+        self:Message("Your current look has unsaved changes. Save it before switching looks.");return false
+    end
+    StaticPopupDialogs["SAUREKS_CLOSET_DISCARD_LOOK"]={
+        text='You have unsaved changes. Switching to "%s" will discard them. Continue?',
+        button1="Discard Changes",button2="Cancel",timeout=0,whileDead=1,hideOnEscape=1,
+        OnAccept=function()
+            local pending=V.pendingLookChange;V.pendingLookChange=nil
+            if not pending then return end
+            if pending.activate then V:ActivateSavedOutfit(pending.name,true)
+            else V:LoadOutfit(pending.name,true) end
+        end,
+        OnCancel=function() V.pendingLookChange=nil end,
+    }
+    self.pendingLookChange={name=name,activate=activate}
+    local dialog=StaticPopup_Show("SAUREKS_CLOSET_DISCARD_LOOK",self:OutfitLabel(name))
+    if not dialog then self.pendingLookChange=nil;return false end
+    return true
+end
+function V:ActivateSavedOutfit(name,discardChanges)
     if not name or not self:GetOutfit(name) then return false end
+    if not discardChanges and self:NeedsLookChangeConfirmation(name) then
+        self:ConfirmLookChange(name,true);return false,"pending"
+    end
     local wasEnabled=VanityStudioCharacter.enabled
     VanityStudioCharacter.enabled=true
-    if self:LoadOutfit(name) then
+    if self:LoadOutfit(name,discardChanges) then
         self.outfitMessage:SetText("");self:RefreshOutfits();self:RefreshOutfitDetails();return true
     end
     VanityStudioCharacter.enabled=wasEnabled
@@ -1681,21 +1867,20 @@ function V:RefreshOutfits()
 end
 function V:ActiveOutfitText()
     local c=VanityStudioCharacter
-    local name=c.activeUnsaved and "(Unsaved Look)" or c.activeOutfit or "No outfit"
+    local base=self:ActiveSavedLookName();local edited=self:HasUnsavedLookChanges()
+    local name=base and (base..(edited and " (Edited)" or "")) or (edited and "(Unsaved Look)" or "No outfit")
     return name..(not c.enabled and " (off)" or "")
 end
 function V:Refresh()
     if not self.uiReady or not self.frame or not self.frame:IsShown() then return end
     self:RefreshUpdateUI()
     local c=VanityStudioCharacter
-    self.enabledButton.caption:SetText(c.enabled and "Disable" or "Enable")
+    self:RefreshWardrobeSaveButton()
     if self.weaponNotice then
         self.weaponNotice:SetText(not self:CarriedWeaponsAvailable() and "Update SaureksCloset.dll and restart WoW." or self.weaponError or "")
     end
     self.activeOutfitLabel:SetText(self:ActiveOutfitText())
-    if self.bagSlots then
-        self.bagSlots[1].icon:SetTexture(c.weapons and c.weapons.backBag==1 and "Interface\\Icons\\INV_Misc_Bag_08" or "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
-    end
+    self:RefreshBagsPage()
     for slot,b in pairs(self.slotButtons) do
         local id=self:SlotSelection(slot);local icon
         if id and id>0 then local n,l,q,lev,typ,sub,stack,loc,path=GetItemInfo(id);icon=path or self:CatalogIcon(id)

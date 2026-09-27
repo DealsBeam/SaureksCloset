@@ -1,0 +1,113 @@
+[
+  {
+    "id": 2,
+    "name": "Amber Traveler Even Strap",
+    "stem": "AmberTravelerEvenStrap",
+    "source": "AmberTravelerEvenStrap.glb",
+    "origin": "Amber_Traveler_04_Even_Strap/Amber_Traveler_Even_Strap.glb"
+  },
+  {
+    "id": 3,
+    "name": "Burgundy Rucksack",
+    "stem": "BurgundyRucksack",
+    "source": "BurgundyRucksack.glb",
+    "origin": "Burgundy_Rucksack_05/Burgundy_Rucksack.glb",
+    "retired": true
+  },
+  {
+    "id": 4,
+    "name": "Milloo Dark Leather",
+    "stem": "MillooDarkLeather",
+    "source": "MillooDarkLeather.glb",
+    "origin": "Milloo_Dark_Leather/Milloo_Dark_Leather.glb",
+    "retired": true
+  },
+  {
+    "id": 5,
+    "name": "Milloo No Zippers",
+    "stem": "MillooNoZippers",
+    "source": "MillooNoZippers.glb",
+    "origin": "Milloo_No_Zippers/Milloo_No_Zippers.glb"
+  },
+  {
+    "id": 6,
+    "name": "Milloo Scratch",
+    "stem": "MillooScratch",
+    "source": "MillooScratch.glb",
+    "origin": "Milloo_Scratch/Milloo_Scratch.glb",
+    "retired": true
+  },
+  {
+    "id": 7,
+    "name": "Milloo Smooth Dark Leather",
+    "stem": "MillooSmoothDarkLeather",
+    "source": "MillooSmoothDarkLeather.glb",
+    "origin": "Milloo_Smooth_Dark_Leather/Milloo_Smooth_Dark_Leather.glb"
+  },
+  {
+    "id": 8,
+    "name": "Milloo Smooth Tan Leather",
+    "stem": "MillooSmoothTanLeather",
+    "source": "MillooSmoothTanLeather.glb",
+    "origin": "Milloo_Smooth_Tan_Leather/Milloo_Smooth_Tan_Leather.glb"
+  },
+  {
+    "id": 9,
+    "name": "Milloo Tan Leather",
+    "stem": "MillooTanLeather",
+    "source": "MillooTanLeather.glb",
+    "origin": "Milloo_Tan_Leather/Milloo_Tan_Leather.glb",
+    "retired": true
+  },
+  {
+    "id": 10,
+    "name": "Ranger Rucksack",
+    "stem": "RangerRucksack",
+    "source": "RangerRucksack.glb",
+    "origin": "Ranger_Rucksack_02/Ranger_Rucksack.glb"
+  },
+  {
+    "id": 11,
+    "name": "Black Leather Sling",
+    "stem": "BlackLeatherSling",
+    "source": "BlackLeatherSling.glb",
+    "origin": "black-leather-sling/Black_Leather_Sling.glb"
+  },
+  {
+    "id": 12,
+    "name": "Burgundy Cloth Pouch Low",
+    "stem": "BurgundyClothPouchLow",
+    "source": "BurgundyClothPouchLow.glb",
+    "origin": "cloth-pouch-color-variants/burgundy/Burgundy_Cloth_Pouch_WoW_Low.glb"
+  },
+  {
+    "id": 13,
+    "name": "Navy Cloth Pouch Low",
+    "stem": "NavyClothPouchLow",
+    "source": "NavyClothPouchLow.glb",
+    "origin": "cloth-pouch-color-variants/navy/Navy_Cloth_Pouch_WoW_Low.glb"
+  },
+  {
+    "id": 14,
+    "name": "Ochre Cloth Pouch Low",
+    "stem": "OchreClothPouchLow",
+    "source": "OchreClothPouchLow.glb",
+    "origin": "cloth-pouch-color-variants/ochre/Ochre_Cloth_Pouch_WoW_Low.glb"
+  },
+  {
+    "id": 15,
+    "name": "Olive Cloth Pouch",
+    "stem": "OliveClothPouch",
+    "source": "OliveClothPouch.glb",
+    "origin": "olive-cloth-pouch/Olive_Cloth_Pouch.glb",
+    "retired": true,
+    "replacement": 16
+  },
+  {
+    "id": 16,
+    "name": "Olive Cloth Pouch Low",
+    "stem": "OliveClothPouchLow",
+    "source": "OliveClothPouchLow.glb",
+    "origin": "olive-cloth-pouch-wow-low/Olive_Cloth_Pouch_WoW_Low.glb"
+  }
+]

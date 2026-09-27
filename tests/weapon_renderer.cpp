@@ -15,6 +15,7 @@
 #include "../native/PreviewState.h"
 #include "../native/WeaponState.h"
 #include "bow_attachment_fixtures.h"
+#include "bag_hip_fixtures.h"
 #include "quiver_attachment_fixtures.h"
 #include "sword_attachment_fixtures.h"
 using DestroyModel=void (*)(void*);
@@ -89,6 +90,13 @@ template<typename T> static T weaponFunction(std::uintptr_t a){
     assert(false);return nullptr;
 }
 #include "../native/WeaponRenderer.h"
+static unsigned lastBagGeneration=0;
+static int setBagsStatus(void* L){
+    luaOutput.clear();const auto results=setBags(L);
+    if(results!=2)return results; // The test result() shim returns error statuses directly.
+    assert(luaOutput.size()==2);lastBagGeneration=static_cast<unsigned>(luaOutput[1]);
+    return static_cast<int>(luaOutput[0]);
+}
 static unsigned realIDs[3]={35,0,0};
 static std::array<std::array<unsigned char,8>,3> realInfo{};
 static unsigned serverRangedAppearance=0;
@@ -1810,6 +1818,161 @@ int main(){
         context->selection.items[2]=999999;assert(!positionStoredStaff(child,fitted));
         context->selection.items[2]=6215;
         captureAttachmentMatrix=false;forgetWeapons(0x6000);previews.entries[0]={};
+    }
+    {
+        const auto bagRequest=[](unsigned token){Lua call;call.values.resize(17,0);call.values[0]=token;return call;};
+        auto choices=bagRequest(0);
+        for(unsigned i=0;i<8;++i){choices.values[1+i*2]=2;choices.values[2+i*2]=i%3;}
+        const auto initialLoads=loads;
+        assert(setBagsStatus(&choices)==1&&loads==initialLoads+8);
+        auto* context=weaponContext(player.model);assert(context);
+        const auto firstGeneration=lastBagGeneration;assert(firstGeneration&&context->bagGeneration==firstGeneration);
+        std::array<void*,8> children{};
+        for(unsigned i=0;i<8;++i){
+            const auto& bag=context->bags[i];children[i]=bag.child;
+            assert(bag.model==2&&bag.mount==i%3&&bag.child&&refs[address(bag.child)]==2);
+            assert(ownedExtra(*context,bag.child)&&memory[address(bag.child)+0x1D0]==bagAttachment(i%3));
+            assert(findChildHook(pointer(context->parent),nullptr,bagAttachment(i%3))!=bag.child);
+            for(unsigned j=0;j<i;++j)assert(children[j]!=children[i]);
+        }
+        assert(setBagsStatus(&choices)==1&&loads==initialLoads+8&&lastBagGeneration==firstGeneration);
+        for(unsigned point:{28u,32u,33u})clearChildrenHook(pointer(context->parent),nullptr,point);
+        for(auto child:children)assert(memory[address(child)+0x1CC]==context->parent&&refs[address(child)]==2);
+        WeaponSelection empty;auto weapons=request(0,empty);
+        assert(setWeapons(&weapons)==1&&weaponContext(player.model)==context);
+        for(unsigned i=0;i<8;++i)assert(context->bags[i].child==children[i]);
+        detach(children[0]);assert(refs[address(children[0])]==1);
+        assert(setWeapons(&weapons)==1&&context->bags[0].child==children[0]&&refs[address(children[0])]==2);
+
+        // Real build5875 hip bones for all 16 body types and both sides.
+        for(const auto& fixture:bowFixtures){
+            setBack(context,fixture);
+            const auto base=context==c?0x2000000u:0x3000000u;
+            for(const auto& hip:bagHipFixtures)if(hip.race==fixture.race&&hip.sex==fixture.sex){
+                memory[base+0x2000+2*hip.point]=hip.index;
+                const auto record=base+0x3000+48*hip.index;
+                memory[record]=hip.point;memory[record+4]=hip.bone;positions[record+8]=hip.position;
+                memory[base+0x7000+108*hip.bone+8]=hip.parent;
+                matrices[base+0x5000+64*hip.bone]=identity;matrices[base+0x5000+64*hip.parent]=identity;
+            }
+            for(unsigned i=0;i<8;++i){
+                BagMatrix placed;assert(positionBackpack(children[i],placed));
+                BagTuningValues defaults;assert(bagInstanceTuningDefaults(i%3,fixture.race,fixture.sex,defaults));
+                Lua query{{double(201+i),double(fixture.race),double(fixture.sex),double(i%3)}};
+                luaOutput.clear();assert(getBagFitDefaults(&query)==8&&luaOutput[7]==defaults.scale);
+                for(unsigned column:{0u,4u,8u}){
+                    float length=0;for(unsigned axis=0;axis<3;++axis)length+=placed[column+axis]*placed[column+axis];
+                    assert(std::fabs(std::sqrt(length)-.45f*defaults.scale/100)<.00001f);
+                }
+                if(i%3){
+                    const auto& hip=bagHipFixtures[4*(fixture.race-1)+2*fixture.sex+(i%3-1)];
+                    assert(std::fabs(placed[12]-hip.position[0])<.00001f&&std::fabs(placed[13]-hip.position[1])<.00001f);
+                    assert(std::fabs(placed[14]-hip.position[2]+.15f)<.00001f);
+                    assert(i%3==1?placed[1]<0:placed[1]>0); // Bag faces away from the selected hip.
+                }
+            }
+        }
+        setBack(context,bowFixtures[0]);
+        Lua firstFit{{0,1,1,0,1,.22,.03,.04,5,6,7,90,0}};
+        Lua otherFit{{0,4,1,0,1,-.22,.02,.08,-5,-6,-7,110,1}};
+        assert(setBagInstanceFit(&firstFit)==1&&setBagInstanceFit(&otherFit)==1);
+        assert(context->bags[0].fits[0].values.left==.22f&&context->bags[3].fits[0].values.left==-.22f);
+        const auto revision=context->bags[0].fits[0].revision;
+        assert(setBagInstanceFit(&firstFit)==1&&context->bags[0].fits[0].revision==revision);
+        BagMatrix firstPose,otherPose;
+        assert(positionBackpack(children[0],firstPose)&&positionBackpack(children[3],otherPose)&&firstPose!=otherPose);
+        for(unsigned index:{1u,2u,3u,4u,5u,8u,11u,12u}){
+            auto invalid=firstFit;invalid.values[index]=std::numeric_limits<double>::quiet_NaN();
+            assert(setBagInstanceFit(&invalid)==-2&&context->bags[0].fits[0].revision==revision);
+        }
+        auto badFit=firstFit;badFit.values[5]=1.0000000001;
+        assert(setBagInstanceFit(&badFit)==-2&&context->bags[0].fits[0].revision==revision);
+        for(double value:{-1.,.5,17.,999999.,std::numeric_limits<double>::infinity()}){
+            auto invalid=choices;invalid.values[1]=value;
+            assert(setBagsStatus(&invalid)==-2&&context->bags[0].child==children[0]);
+        }
+        auto invalid=choices;invalid.values[2]=3;assert(setBagsStatus(&invalid)==-2);
+        invalid=choices;invalid.values.pop_back();assert(setBagsStatus(&invalid)==-2);
+        invalid=choices;invalid.values.push_back(0);assert(setBagsStatus(&invalid)==-2);
+        invalid=choices;invalid.values[1]=0;invalid.values[2]=1;assert(setBagsStatus(&invalid)==-2);
+
+        // Each addon preview has its own fits even when model and instance IDs match.
+        const auto previewParent=std::uintptr_t(0x6000);
+        previews.entries[0]={};previews.entries[0].model=previewParent;previews.entries[0].guid=player.guid;
+        previews.entries[0].token=87;previews.entries[0].status=1;memory[previewParent+0x10]=1;
+        auto previewChoices=choices;previewChoices.values[0]=87;assert(setBagsStatus(&previewChoices)==1);
+        auto* preview=weaponContext(previewParent);assert(preview&&preview!=context);
+        auto previewFit=firstFit;previewFit.values[0]=87;previewFit.values[5]=.55;
+        assert(setBagInstanceFit(&previewFit)==1&&preview->bags[0].fits[0].values.left==.55f);
+        assert(context->bags[0].fits[0].values.left==.22f);
+
+        // The clone callback supplies exact child identities before parent registration.
+        // Two copies of one mesh retain different placement after world choices change.
+        const auto stockParent=std::uintptr_t(0xD1000);WeaponContext stock;stock.parent=stockParent;
+        setBack(&stock,bowFixtures[0]);
+        std::array<void*,2> copies{};
+        for(unsigned n=0;n<2;++n){
+            const unsigned source=n?3:0;
+            loadingExtraParent=stockParent;factory(pointer(stockParent),28,bagAsset(2)->model,bagAsset(2)->texture,0);loadingExtraParent=0;
+            copies[n]=pointer(memory[stockParent+0x1DC]);
+            rememberClonedBagPreview(address(children[source]),address(copies[n]));
+        }
+        rememberClonedBagPreview(context->parent,stockParent);
+        assert(clonedBagOwner(stockParent)==player.guid);
+        for(unsigned n=0;n<2;++n){
+            const auto* clone=clonedBagChild(address(copies[n]));assert(clone&&clone->identity==(n?204u:201u));
+            BagMatrix pose;assert(positionBackpack(copies[n],pose));
+            const auto& expected=n?otherPose:firstPose;for(unsigned i=0;i<16;++i)assert(std::fabs(pose[i]-expected[i])<.00001f);
+        }
+        auto cloneFit=firstFit;cloneFit.values[5]=.8;assert(setBagInstanceFit(&cloneFit)==1);
+        assert(clonedBagChild(address(copies[0]))->bag.fits[0].values.left==.22f);
+        const auto destroyed=address(copies[0]);detach(copies[0]);assert(!clonedBagChild(destroyed));
+        detach(copies[1]);forgetWeapons(stockParent);
+        // Deletion and mounting rebuild only the selected instance; all others survive.
+        const auto beforeDeleteLoads=loads;
+        choices.values[7]=0;choices.values[8]=0;
+        assert(setBagsStatus(&choices)==1&&!context->bags[3].child&&!refs[address(children[3])]&&loads==beforeDeleteLoads);
+        const auto deletedGeneration=lastBagGeneration;assert(deletedGeneration>firstGeneration);
+        for(unsigned i=0;i<8;++i)if(i!=3)assert(context->bags[i].child==children[i]);
+        choices.values[4]=2;assert(setBagsStatus(&choices)==1&&loads==beforeDeleteLoads+1&&lastBagGeneration>deletedGeneration);
+        assert(context->bags[1].child!=children[1]&&!refs[address(children[1])]);
+        // A failed mesh loads once, retries readiness and replaces only itself on failure.
+        auto* failed=context->bags[2].child;modelName(failed,"World\\ErrorCube.mdx");
+        assert(setBagsStatus(&choices)==0&&!context->bags[2].child&&!refs[address(failed)]);
+        factoryModelsLoaded=false;assert(setBagsStatus(&choices)==0&&context->bags[2].child);
+        failed=context->bags[2].child;const auto pendingLoads=loads;
+        assert(setBagsStatus(&choices)==0&&loads==pendingLoads&&context->bags[2].child==failed);
+        memory[address(failed)+0x10]=1;factoryModelsLoaded=true;assert(setBagsStatus(&choices)==1);
+        // Unexpected native reattachment is repaired without losing saved fits.
+        auto* misplaced=context->bags[0].child;
+        const auto preservedGeneration=context->bagGeneration;
+        const auto preservedFit=context->bags[0].fits[0].values;
+        detach(misplaced);attach(misplaced,pointer(context->parent),33);
+        const auto beforeRepairLoads=loads;
+        assert(setBagsStatus(&choices)==1&&context->bags[0].child==misplaced&&loads==beforeRepairLoads);
+        assert(memory[address(misplaced)+0x1D0]==28&&refs[address(misplaced)]==2);
+        assert(lastBagGeneration==preservedGeneration&&context->bags[0].fits[0].values==preservedFit);
+        const auto foreignParent=std::uintptr_t(0xD2000);
+        detach(misplaced);attach(misplaced,pointer(foreignParent),28);
+        assert(setBagsStatus(&choices)==1&&context->bags[0].child!=misplaced&&loads==beforeRepairLoads+1);
+        assert(memory[address(misplaced)+0x1CC]==foreignParent&&refs[address(misplaced)]==1);
+        assert(lastBagGeneration==preservedGeneration&&context->bags[0].fits[0].values==preservedFit);
+        detach(misplaced);
+        auto* destroyedChild=context->bags[0].child;
+        forgetWeapons(address(destroyedChild));assert(!context->bags[0].child);
+        detach(destroyedChild);unref(destroyedChild);
+        assert(setBagsStatus(&choices)==1&&context->bags[0].child!=destroyedChild&&loads==beforeRepairLoads+2);
+        assert(lastBagGeneration==preservedGeneration&&context->bags[0].fits[0].values==preservedFit);
+        const auto worldOff=bagRequest(0);auto off=worldOff;assert(setBagsStatus(&off)==1&&!weaponContext(player.model)&&lastBagGeneration==0);
+        assert(setBagsStatus(&choices)==1&&lastBagGeneration>deletedGeneration);
+        const auto recreatedGeneration=lastBagGeneration;
+        assert(setBagsStatus(&off)==1&&!weaponContext(player.model)&&lastBagGeneration==0);
+        assert(setWeapons(&weapons)==1&&!weaponContext(player.model));
+        assert(setBagsStatus(&choices)==1&&lastBagGeneration>recreatedGeneration);
+        assert(setBagsStatus(&off)==1&&!weaponContext(player.model));
+        off=bagRequest(87);assert(setBagsStatus(&off)==1&&!weaponContext(previewParent));previews.entries[0]={};
+        assert(setBagInstanceFit(&firstFit)==-1);firstFit.values[4]=0;assert(setBagInstanceFit(&firstFit)==1);
+        std::cout<<"PASS: eight independent bags, all body hip anchors, private preview fits, duplicate clone identity, deletion and load recovery\n";
     }
     std::cout<<"PASS: native hook simulation, cross-family ranged drawing/sheathing, real metadata isolation, staff body contact and placement tuning\n";
 }

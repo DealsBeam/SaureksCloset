@@ -2,7 +2,7 @@
 VanityStudio = { index = {}, slots = {}, applied = {}, pending = {}, errors = {} }
 local V = VanityStudio
 -- Read from reloaded code; client addon metadata can retain the startup version.
-V.VERSION = "3.7.11"
+V.VERSION = "3.9.1"
 V.UNSAVED = {} -- Runtime key; the single draft itself lives in character saved variables.
 V.slotOrder = {1,3,15,4,5,19,9,10,6,7,8,16,17,18}
 V.slotNames = {[1]="Head",[3]="Shoulders",[4]="Shirt",[5]="Chest",[6]="Waist",[7]="Legs",[8]="Feet",[9]="Wrists",[10]="Hands",[15]="Back",[16]="Main hand",[17]="Off hand",[18]="Ranged",[19]="Tabard"}
@@ -240,7 +240,9 @@ function V:ClearSlot(slot)
 end
 
 function V:ClearAll()
+    if self.CancelLookChange then self:CancelLookChange() end
     self:CancelDraft()
+    if self.DiscardBagDrafts then self:DiscardBagDrafts() end
     VanityStudioCharacter.selected = {}
     VanityStudioCharacter.weapons = {}
     self.editingBody=nil
@@ -268,7 +270,9 @@ function V:Retry()
     self.previewRequests={};self.previewSignature=nil
     self.pending = {}
     self.errors = {}
+    self.armorVisualMismatch = nil
     self:Sync()
+    self:QueueArmorCheck("manual retry")
     self:Refresh()
 end
 
@@ -302,6 +306,20 @@ function V:TrackUnsaved()
     c.unsaved=self:CurrentLook();c.unsaved.baseName=base
     c.activeOutfit=nil;c.activeUnsaved=true;c.outfitDirty=true;self.outfitOffset=0;self.unsavedLookMessage=nil
 end
+function V:ActiveSavedLookName()
+    local c=VanityStudioCharacter
+    local name=c.activeUnsaved and c.unsaved and c.unsaved.baseName or c.activeOutfit
+    if name and VanityStudioDB.outfits[name] then return name end
+end
+function V:HasUnsavedLookChanges()
+    local c=VanityStudioCharacter
+    return (c.activeUnsaved and c.unsaved~=nil) or self.draft~=nil or
+        (self.HasUnsavedBagFits and self:HasUnsavedBagFits()) or false
+end
+function V:NeedsLookChangeConfirmation(name)
+    if not self:GetOutfit(name) or (name==self.UNSAVED and self:IsOutfitActive(name)) then return false end
+    return self:HasUnsavedLookChanges()
+end
 function V:OutfitKeys()
     local keys=self:OutfitNames()
     if VanityStudioCharacter.unsaved then table.insert(keys,1,self.UNSAVED) end
@@ -312,7 +330,9 @@ function V:GetOutfit(key)
     return VanityStudioDB.outfits[key]
 end
 function V:OutfitLabel(key)
-    return key==self.UNSAVED and "(Unsaved Look)" or key
+    if key~=self.UNSAVED then return key end
+    local look=self:GetOutfit(key);local base=look and look.baseName
+    return base and VanityStudioDB.outfits[base] and (base.." (Edited)") or "(Unsaved Look)"
 end
 function V:IsOutfitActive(key)
     local c=VanityStudioCharacter
@@ -327,16 +347,27 @@ function V:ValidateOutfitName(name,existing)
     if VanityStudioDB.outfits[name] and name~=existing then return nil,"That name is already used." end
     return name
 end
+function V:PrepareLookForSave()
+    if self.draft and not self:CommitDraft() then return false,"The preview could not be applied. Check the selected appearance." end
+    if self.SaveBagDraftFits and self:SaveBagDraftFits() then self:TrackUnsaved() end
+    return true
+end
 function V:SaveOutfit(name,replace,key)
     local clean,err=self:ValidateOutfitName(name,replace and name or nil)
     if not clean then return false,err end
-    local look=key and self:GetOutfit(key) or self:CurrentLook()
-    if not look then return false,"This outfit no longer exists." end
     local c=VanityStudioCharacter
     local active=not key or self:IsOutfitActive(key)
+    if key and not self:GetOutfit(key) then return false,"This outfit no longer exists." end
+    if active then
+        local ok,why=self:PrepareLookForSave();if not ok then return false,why end
+    end
+    -- Every active-look save captures the latest preview and bag fits. Copies
+    -- of inactive looks continue to use their stored snapshot unchanged.
+    local look=active and self:CurrentLook() or self:GetOutfit(key)
     VanityStudioDB.outfits[clean]={version=3,slots=self:Copy(look.slots),weapons=self:Copy(look.weapons),body=look.body and self:Copy(look.body),updatedAt=time and time() or 0}
-    if key==self.UNSAVED or (not key and c.activeUnsaved) then c.unsaved=nil end
+    if key==self.UNSAVED or (active and c.activeUnsaved) then c.unsaved=nil end
     if active then c.activeOutfit=clean;c.activeUnsaved=nil;c.outfitDirty=nil end
+    if active and self.CancelLookChange then self:CancelLookChange() end
     self:Refresh();return true,clean
 end
 function V:RenameOutfit(old,name)
@@ -364,12 +395,15 @@ function V:DeleteOutfit(key)
     end
     self:Refresh();return true
 end
-function V:LoadOutfit(name)
+function V:LoadOutfit(name,discardChanges)
     local outfit=self:GetOutfit(name)
     if not outfit then return false end
+    if not discardChanges and self:NeedsLookChangeConfirmation(name) and self.ConfirmLookChange then
+        self:ConfirmLookChange(name,false);return false,"pending"
+    end
     if next(outfit.weapons or {}) and not self:WeaponRendererAvailable() then self:Message("Update SaureksCloset.dll and restart WoW before loading this look.");return false end
     if outfit.weapons and outfit.weapons.backBag and not self:BagRendererAvailable() then self:Message("Update SaureksCloset.dll and restart WoW before loading a look with visible bags.");return false end
-    self:CancelDraft()
+    if self.NormalizeBags and table.getn(self:NormalizeBags(outfit.weapons))>0 and not self:MultiBagRendererAvailable() then self:Message("Fully restart WoW with the updated SaureksCloset.dll before loading a look with bags.");return false end
     local selected={}
     for slot,id in pairs(outfit.slots or outfit) do
         if not self:IsWeaponPosition(slot) and self:Compatible(id,slot) then selected[slot]=id end
@@ -378,11 +412,14 @@ function V:LoadOutfit(name)
     c.body=outfit.body and self:NormalizeBody(outfit.body)
     if c.body and not self:BodyAvailable() then c.body=previousBody;self:Message("The race renderer is missing. Restart the game before loading this combo.");return false end
     if self:SyncBody()==false then c.body=previousBody;self:Message(self.bodyError);return false end
+    self:CancelDraft()
     self.editingBody=nil;self:InvalidatePreviewModel(.25,true)
+    if self.DiscardBagDrafts then self:DiscardBagDrafts() end
     c.selected=selected;c.weapons=self:NormalizeWeapons(outfit.weapons)
     self:MigrateEquippedWeaponOverrides(c.selected,c.weapons)
     c.activeUnsaved=name==self.UNSAVED and true or nil
     c.activeOutfit=name~=self.UNSAVED and name or nil;c.outfitDirty=c.activeUnsaved
+    if discardChanges and name~=self.UNSAVED then c.unsaved=nil end
     self.pending={};self.errors={};self:Sync();self:Refresh();return true
 end
 
@@ -390,7 +427,8 @@ function V:CycleOutfit(direction)
     local names=self:OutfitNames()
     if table.getn(names)==0 then self:Message("Save a look in the Outfits tab first.");return end
     local index=direction>0 and 0 or 1
-    for i,name in ipairs(names) do if name==VanityStudioCharacter.activeOutfit then index=i end end
+    local active=self:ActiveSavedLookName()
+    for i,name in ipairs(names) do if name==active then index=i end end
     index=math.mod(index-1+direction,table.getn(names))+1
     if index<1 then index=table.getn(names) end
     self:LoadOutfit(names[index])
@@ -524,6 +562,7 @@ function V:QueueArmorCheck(reason,refreshDisplay)
     -- postpone the check indefinitely. No timer runs when there are no events.
     if not self.armorCheckAt then
         self.armorCheckAt=GetTime()+.25
+        self.armorVisualRetries=4
         self.armorCheckReason=self.armorCheckReason or reason
         local inCombat=UnitAffectingCombat and UnitAffectingCombat("player")
         local renderer=""
@@ -538,6 +577,64 @@ function V:QueueArmorCheck(reason,refreshDisplay)
         end
         self:RecordArmorEvent("check queued: "..reason.."; refresh="..tostring(refreshDisplay and true or false).."; combat="..tostring(inCombat and true or false)..renderer)
     end
+end
+
+function V:ArmorVisualSelection(slot)
+    -- The compositor owns these eleven armor slots. Weapon appearances have
+    -- a separate renderer and must never trigger an armor rebuild.
+    if not ((slot>=3 and slot<=10) or slot==1 or slot==15 or slot==19) then return end
+    local id=VanityStudioCharacter.selected[slot]
+    if self.draft and self.draft.slot==slot then id=self.draft.id end
+    if id==0 then return 0,id end
+    -- Native Hide Helm/Cloak settings can deliberately omit a selected item
+    -- from the compositor. They are not a lost transmog.
+    if (slot==1 and ShowingHelm and not ShowingHelm()) or
+        (slot==15 and ShowingCloak and not ShowingCloak()) then return end
+    local item=id and self.index[id]
+    if item and item[8] and item[8]>0 and
+        (self.applied[slot]==id or GetItemInfo(id)) then return item[8],id end
+end
+
+function V:RetryArmorVisualCheck(reason)
+    local remaining=self.armorVisualRetries or 0
+    if remaining<=0 then return end
+    self.armorVisualRetries=remaining-1
+    self.armorCheckAt=GetTime()+.5
+    self.armorCheckReason=reason
+end
+
+function V:CheckArmorVisuals(reason)
+    if not VanityStudioCharacter.enabled or type(SaureksClosetInspectArmor)~="function" then return end
+    local mismatches,selection={},{}
+    local waiting=false
+    for _,slot in ipairs(self.slotOrder) do
+        local display,id=self:ArmorVisualSelection(slot)
+        if display~=nil then
+            table.insert(selection,slot.."="..id)
+            local ok,status,actual,dirty,attachments=pcall(SaureksClosetInspectArmor,slot,display)
+            if ok and status==0 then
+                table.insert(mismatches,slot..": expected="..display.."; rendered="..tostring(actual)..
+                    "; attachments="..tostring(attachments))
+            elseif not ok or status==-1 then waiting=true end
+        end
+    end
+    if table.getn(mismatches)>0 then
+        local detail=table.concat(mismatches," | ")
+        local signature=table.concat(selection,",").." / "..detail
+        -- A failed refresh must not feed a rebuild loop through its own model
+        -- notifications. A healthy observation or changed selection rearms it.
+        if self.armorVisualMismatch~=signature then
+            self.armorVisualMismatch=signature
+            self:RecordArmorEvent("visual repair after "..reason..": "..detail)
+            self.refreshArmorDisplay=true
+            self:Sync()
+            self:RetryArmorVisualCheck("verify visual repair")
+        elseif waiting then self:RetryArmorVisualCheck(reason) end
+    elseif waiting then
+        -- Assets can still be loading after a field update. Read again a few
+        -- times; never guess that an unavailable model needs rebuilding.
+        self:RetryArmorVisualCheck(reason)
+    else self.armorVisualMismatch=nil end
 end
 
 function V:UpdateArmorCheck()
@@ -559,6 +656,7 @@ function V:UpdateArmorCheck()
         -- Run the nudge and complete restore in this one Lua update. There is
         -- no intervening rendered frame and no periodic follow-up worker.
         self:Sync()
+        self:CheckArmorVisuals(reason)
         return
     end
     -- Inventory/model updates may overwrite visible item fields without an
@@ -585,6 +683,7 @@ function V:UpdateArmorCheck()
     end
     self.syncingAppearance=nil
     self:RecordArmorEvent("checked "..checked.." armor overrides: "..table.concat(requested,", "))
+    self:CheckArmorVisuals(reason)
 end
 
 function V:ArmorLifeState()
@@ -617,6 +716,23 @@ function V:RefreshArmorDisplay()
                 local ok,err = pcall(SetUnitVisibleItemID,"player",slot,temporary)
                 if not ok then self.errors[slot] = tostring(err) end
                 return
+            end
+        end
+    end
+    -- All selected slots may be hidden and unequipped after removing gear.
+    -- Releasing an already-empty field cannot rebuild its stale attachment.
+    -- Use a cached, compatible armor item for the same-frame pulse instead;
+    -- Sync immediately restores the hidden selection before Lua yields.
+    for _,slot in ipairs(self.slotOrder) do
+        local id=c.selected[slot]
+        if self.draft and self.draft.slot==slot then id=self.draft.id end
+        if id==0 then
+            for _,item in ipairs(self.slots[slot] or {}) do
+                if item[1]>0 and GetItemInfo(item[1]) then
+                    local ok,err=pcall(SetUnitVisibleItemID,"player",slot,item[1])
+                    if not ok then self.errors[slot]=tostring(err) end
+                    return
+                end
             end
         end
     end
@@ -746,6 +862,8 @@ V.events:SetScript("OnUpdate", function()
     if (V.needsSync or pending) and not V.respawnRecovery then
         V.needsSync = false
         V:Sync()
+        V.armorVisualRetries=4
+        V:CheckArmorVisuals("appearance sync")
         V:Refresh()
     end
     V:UpdateArmorCheck()

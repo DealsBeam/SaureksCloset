@@ -42,7 +42,9 @@ function V:NormalizeWeapons(source)
     for _,name in ipairs({"quiverHorizontal","hideRangedWhenStored","hideMeleeWhenStored"}) do
         if source and source[name]==true then result[name]=true end
     end
-    if source and source.backBag==1 then result.backBag=1 end
+    if self.NormalizeBags then
+        result.bags=self:NormalizeBags(source)
+    elseif source and source.backBag==1 then result.backBag=1 end
     -- Upgrade old looks once. Keep carried models and explicitly preserve their
     -- former hand appearances; future carried edits never change attacking gear.
     if source and not source.independent then
@@ -95,6 +97,10 @@ function V:BagRendererAvailable()
 end
 function V:SelectBackBag(id)
     if id~=nil and id~=1 then return false end
+    if self.MultiBagRendererAvailable and self:MultiBagRendererAvailable() then
+        if id then return self:AddBag(id,"back") end
+        local bag=self:GetBags()[1];return bag and self:DeleteBag(bag.id) or true
+    end
     if id and not self:BagRendererAvailable() then
         self:Message("Copy the updated SaureksCloset.dll and fully restart WoW to use visible bags.")
         return false
@@ -261,10 +267,16 @@ function V:ApplyWeaponRenderer(token,weapons)
     -- can safely cross that version boundary.
     if next(w) and not self:CarriedWeaponsAvailable() then return false,-2 end
     if w.backBag and not self:BagRendererAvailable() then return false,-2 end
+    if w.bags and table.getn(w.bags)>0 and not self:MultiBagRendererAvailable() then return false,-2 end
     local previewMode=0
     if token>0 and ((self.model and self.model.weaponToken==token) or (self.previewBuffer and self.previewBuffer.weaponToken==token)) then previewMode=self:WeaponPreviewMode() end
     local ok,status=pcall(SaureksClosetSetWeapons,token,carried and w[101] or 0,carried and w[102] or 0,carried and w[103] or 0,carried and w[104] or 0,carried and w[105] or 0,carried and w[106] or 0,carried and w[107] or 0,real[1],real[2],real[3],w.quiverHorizontal and 1 or 0,0,0,actualQuiver,w.backBag or 0,w[108] or 0,w[109] or 0,w[110] or 0,w.independent and 1 or 0,previewMode,carried and 1 or 0)
-    return ok and status==1,status
+    if not ok or status~=1 then return false,status end
+    if self.ApplyBagRenderer then
+        local live=token==0 or (self.model and self.model.weaponToken==token) or (self.previewBuffer and self.previewBuffer.weaponToken==token)
+        return self:ApplyBagRenderer(token,w,live)
+    end
+    return true,status
 end
 function V:SyncWeapons()
     if self.SyncBagTuning then self:SyncBagTuning() end
@@ -275,6 +287,7 @@ function V:SyncWeapons()
     -- Native synchronization is idempotent. This also restores children after
     -- model changes without cloning/reloading the character every update.
     local ok,status=self:ApplyWeaponRenderer(0,weapons)
+    self.bagError=not ok and status~=0 and self.NormalizeBags and table.getn(self:NormalizeBags(weapons))>0 and "Bags are waiting for the renderer. Retrying..." or nil
     self.weaponError=not ok and status==-2 and "Update SaureksCloset.dll and fully restart WoW through VanillaFixes to use these weapon settings." or not ok and status~=0 and "Weapon placements could not be applied." or nil
 end
 function V:PreviewWeapons()
@@ -287,7 +300,7 @@ function V:PreviewWeapons()
 end
 function V:WeaponDisplaySignature(weapons)
     local w=weapons or {}
-    return ":q"..(w.quiverHorizontal and 1 or 0)..":carried"..(self:CarriedWeaponsEnabled(w) and 1 or 0)..":bag"..(w.backBag or 0)..":ind"..(w.independent and 1 or 0)
+    return ":q"..(w.quiverHorizontal and 1 or 0)..":carried"..(self:CarriedWeaponsEnabled(w) and 1 or 0)..":bag"..(w.backBag or 0)..":ind"..(w.independent and 1 or 0)..(self.BagSignature and self:BagSignature(w) or "")
 end
 function V:WeaponSignature(weapons,overrides,omitDisplayOptions)
     weapons=self:EffectiveWeapons(weapons,overrides)
