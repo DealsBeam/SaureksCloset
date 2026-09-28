@@ -6,8 +6,6 @@
 
 Supported on Linux, Windows, and Mac
 
-NEVER DOWNLOAD SAUREK'S CLOSET FROM ANYWHERE BUT THIS GITHUB PAGE
-
 <a href="https://discord.gg/6mfxCdNbM6"><img src="https://invidget.switchblade.xyz/6mfxCdNbM6" alt="Join Saurek's Addons on Discord — online and total member counts" width="430" height="110"></a>
 
 [Join the Discord community](https://discord.gg/6mfxCdNbM6)
@@ -144,6 +142,8 @@ I have personally seen people distributing viruses in the form of WoW addons.
 Be careful installing random addons, *especially* ones that utilize DLL injection, because their capabilities are not constrained in any way. DLL injection based programs can: access any file on your computer and store arbitrary data on your computer, transmit and receive data to any website or person, and execute any program or script on your computer.
 
 Saurek's Closet, of course, does not have any malicious functions, and the full source is available and can verified as such. I simply like to make people aware that it isn't safe to just install anything willy nilly.
+
+NEVER DOWNLOAD SAUREK'S CLOSET FROM ANYWHERE BUT THIS OFFICIAL GITHUB PAGE
 
 ## Special thanks
 
