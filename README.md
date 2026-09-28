@@ -145,11 +145,11 @@ Saurek's Closet, of course, does not have any malicious functions, and the full 
 
 ## Special thanks
 
-Ownedcore Community - for their years of research on 1.12 and generous sharing of offsets
-Aeroscripts - for offering advice and years of friendship
-Galo - for offering advice and years of friendship
-Icescythe7 - for offering advice
-Darklinux - for offering advice
+- Ownedcore Community - for their years of research on 1.12 and generous sharing of offsets
+- Aeroscripts - for offering advice and years of friendship
+- Galo - for offering advice and years of friendship
+- Icescythe7 - for offering advice
+- Darklinux - for offering advice
 
 ## Licensing
 
