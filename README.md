@@ -1,6 +1,6 @@
 <div align="center">
 
-# Saurek's Closet - A Damn Fine 1.12 Transmog
+# Saurek's Closet - A Damn Fine WoW 1.12 Transmog
 
 Saurek proudly presents:
 
