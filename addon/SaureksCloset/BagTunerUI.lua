@@ -91,6 +91,7 @@ function V:RefreshBagTunerUI()
     if self.RefreshWardrobeSaveButton then self:RefreshWardrobeSaveButton() end
     local available=state.available and true or false
     local targetChanged=f.targetKey~=state.key
+    if targetChanged and self.CloseBagPlacementEditor then self:CloseBagPlacementEditor() end
     f.targetKey=state.key
     f.target:SetText(state.title or "Bag fitting")
     local bag=self.placementTunerBag and self:BagInstance(self.placementTunerBag)
@@ -145,6 +146,10 @@ function V:RefreshBagTunerUI()
     f.enableControl(f.load,available and state.saved)
     f.enableControl(f.reset,available)
     f.enableControl(f.export,available)
+    if f.place then
+        if bag then f.place:Show() else f.place:Hide() end
+        f.enableControl(f.place,available and state.enabled and VanityStudioCharacter.enabled and bag~=nil)
+    end
     f.refreshing=nil
 end
 function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
@@ -158,6 +163,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
     f:SetScript("OnDragStop",function() this:StopMovingOrSizing() end)
     f.close:SetScript("OnClick",function() V.bagTunerWindow:Hide() end)
     f:SetScript("OnHide",function()
+        if V.CloseBagPlacementEditor then V:CloseBagPlacementEditor() end
         GameTooltip:Hide()
         V:CloseBagTunerModelPicker()
         if this.mountMenu and UIDROPDOWNMENU_OPEN_MENU==this.mountMenu:GetName() then CloseDropDownMenus() end
@@ -232,7 +238,8 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
     f.mountSelector,f.mountCaption,f.mountMenu=selector("mount","Start","SaureksClosetBagTunerMount",104,105,
         "Start on the Back, Left hip or Right hip. Changing the starting position resets this bag's tuned fits.")
     local picker=CreateFrame("Frame","SaureksClosetBagTunerModelPicker",f);f.modelPicker=picker
-    picker:SetPoint("TOPLEFT",f,"TOPLEFT",27,-102);picker:SetWidth(310);picker:SetHeight(270)
+    local pickerHeight=math.ceil(table.getn(self.bagModelChoices)/2)*64+14
+    picker:SetPoint("TOPLEFT",f,"TOPLEFT",27,-102);picker:SetWidth(310);picker:SetHeight(pickerHeight)
     picker:SetFrameStrata("DIALOG");picker:SetFrameLevel(f:GetFrameLevel()+40);picker:EnableMouse(true)
     picker:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",
         edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=12,
@@ -241,7 +248,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
     -- The native dialog finish is only 60% opaque. Put it over a solid base
     -- so the tuner's numeric controls cannot show through this visual menu.
     local finish=CreateFrame("Frame",nil,picker)
-    finish:SetPoint("TOPLEFT",picker,"TOPLEFT",5,-5);finish:SetWidth(300);finish:SetHeight(260)
+    finish:SetPoint("TOPLEFT",picker,"TOPLEFT",5,-5);finish:SetWidth(300);finish:SetHeight(pickerHeight-10)
     finish:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",tile=true,tileSize=16})
     finish:SetBackdropColor(1,1,1,1)
     picker.rows={};picker:Hide()
@@ -289,7 +296,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
                 f.message=nil;f.messageTime=nil;V:RefreshBagTunerUI()
             end
         end)
-        tooltip(row,choice.name..(choice.colors and "\nChoose a cloth color after selecting this model." or "").."\nYour current fit is kept.")
+        tooltip(row,choice.name..(choice.colors and "\nChoose a color after selecting this model." or "").."\nYour current fit is kept.")
         table.insert(picker.rows,row)
     end
     f.colorChoices=CreateFrame("Frame",nil,f.bagSelectors)
@@ -324,7 +331,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             if not this.color then return end
             GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:ClearLines()
             GameTooltip:AddLine(this.color.name,1,1,1)
-            GameTooltip:AddLine("Change the cloth color. Your fit is kept.",1,.82,0,true);GameTooltip:Show()
+            GameTooltip:AddLine("Change the bag color. Your fit is kept.",1,.82,0,true);GameTooltip:Show()
         end)
         swatch:SetScript("OnLeave",function() GameTooltip:Hide() end)
         table.insert(f.colorSwatches,swatch)
@@ -424,8 +431,17 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         end)
         table.insert(f.rows,{editor=e,caption=caption,minus=nudge(row,"-",108,field,-1),plus=nudge(row,"+",216,field,1),reset=reset})
     end
-    local hint=label(f,"Shift-click +/- for larger steps.",31,342,300,15,true)
+    local hint=label(f,"Shift-click +/- for larger steps.",31,342,166,15,true)
     hint:SetFont("Fonts\\FRIZQT__.TTF",10);hint:SetTextColor(.72,.72,.72)
+    if self.CreateBagPlacementEditor then
+        self:CreateBagPlacementEditor(sheet,label,settingsButton)
+        f.place=settingsButton(f,"Place on model",199,337,132,function()
+            if not V:PrepareBagTunerSelection(V.placementTunerBag) then return end
+            local ok,err=V:OpenBagPlacementEditor()
+            if not ok then showMessage(err);V:RefreshBagTunerUI() end
+        end,.75)
+        tooltip(f.place,"Drag to place this bag on a body guide. Its back faces toward the player. Use the fitting controls afterward to adjust for clothing.")
+    end
     local function action(name,text,x,y,method)
         local b=settingsButton(f,text,x,y,145,function()
             for _,row in ipairs(V.bagTunerWindow.rows) do

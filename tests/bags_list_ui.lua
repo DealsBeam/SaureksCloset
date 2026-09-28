@@ -146,6 +146,7 @@ GameTooltip.ClearLines=function() end
 dofile("addon/SaureksCloset/BagCatalog.lua")
 dofile("addon/SaureksCloset/Bags.lua")
 dofile("addon/SaureksCloset/BagTuner.lua")
+dofile("addon/SaureksCloset/BagPlacementEditor.lua")
 dofile("addon/SaureksCloset/BagTunerUI.lua")
 local realGetBagTunerState=V.GetBagTunerState
 V.GetBagTunerState=function(self)
@@ -227,7 +228,7 @@ check(not tuner.savedState,"Bottom saved/default-fit label is removed")
 check(tuner.modelSelector:IsVisible() and tuner.mountSelector:IsVisible(),"Model and starting position are integrated into the tuner")
 click(tuner.modelSelector)
 local picker=tuner.modelPicker
-check(picker:IsShown() and table.getn(picker.rows)==8,"Visual picker shows all eight model choices")
+check(picker:IsShown() and table.getn(picker.rows)==6,"Visual picker shows all six model choices")
 local seen={}
 for _,row in ipairs(picker.rows) do
     seen[row.choice.name]=true
@@ -248,20 +249,20 @@ local function choose(menuButton,name)
     end
     error("Missing selection: "..name)
 end
-choose(tuner.modelSelector,"Cloth Pouch")
+choose(tuner.modelSelector,"Mageweave Bag")
 check(first.model==16 and tuner:IsShown() and V.placementTunerBag==first.id,"Choosing a model updates the bag without closing the tuner")
 choose(tuner.mountSelector,"Left hip")
 check(first.mount=="leftHip" and tuner:IsShown(),"Starting position changes in the same tuner")
-check(tuner.modelCaption.text=="Cloth Pouch" and tuner.mountCaption.text=="Left hip","Both selectors display the active choices")
-check(tuner.colorChoices:IsVisible() and table.getn(tuner.colorSwatches)==4,"Cloth Pouch offers four color swatches")
+check(tuner.modelCaption.text=="Mageweave Bag" and tuner.mountCaption.text=="Left hip","Both selectors display the active choices")
+check(tuner.colorChoices:IsVisible() and table.getn(tuner.colorSwatches)==4,"Mageweave Bag offers four color swatches")
 for _,swatch in ipairs(tuner.colorSwatches) do
     click(swatch)
     check(first.model==swatch.modelID and swatch.selectedBorder:IsShown() and swatch.selectedCheck:IsShown(),"Color changes the model and marks its swatch")
-    check(V.tab=="bags" and V.bagRows[1].title.text=="Cloth Pouch","Color selection stays on Bags with the grouped name")
+    check(V.tab=="bags" and V.bagRows[1].title.text=="Mageweave Bag","Color selection stays on Bags with the grouped name")
     check(string.find(V.bagRows[1].subtitle.text,swatch.color.name,1,true) and V.bagRows[1].iconButton.icon.texture[1]==V.bagCatalogByID[first.model].icon,"Color is reflected in the card subtitle and custom icon")
 end
 check(first.model==16,"Olive is the last displayed color")
-choose(tuner.modelSelector,"Cloth Pouch");check(first.model==16,"Reselecting the family preserves its color")
+choose(tuner.modelSelector,"Mageweave Bag");check(first.model==16,"Reselecting the family preserves its color")
 local editor=tuner.rows[1].editor
 editor.editing=true;editor.targetKey=V:GetBagTunerState().key;editor:SetText("invalid")
 local beforeOpen=menuOpens
@@ -302,11 +303,22 @@ for i,row in ipairs(V.bagRows) do
     local bag=V:BagInSlot(i)
     check(row:IsVisible() and bag and row.bagID==bag.id,"Every fixed slot binds its stable bag identity")
     inContent(row,"Bag card");inContent(row.remove,"Remove bag")
+    local x,y,w,h=rect(row)
+    check(x==23 and 341-(x+w)==6 and h==54,"Bag cards leave only a six-pixel right inset, without a scrollbar gutter")
+    local rx,ry,rw,rh=rect(row.remove)
+    check(rx+rw==x+w-4 and ry+rh/2==y+h/2,"Remove remains inset and centered inside the narrower row")
+    local tx,ty,tw,th=rect(row.title)
+    local sx,sy,sw,sh=rect(row.subtitle)
+    check(tx+tw<rx and sx+sw<rx,"Both text lines stay clear of Remove")
     check(not overlaps(row.choose,row.remove),"Edit and remove targets are separate")
     check(row.iconButton.width==40 and row.iconButton.height==40,"Custom bag artwork has a readable forty-pixel icon")
     check(not row.gear,"Bag cards have no redundant cogwheel")
     check(row.backdrop.bgFile=="Interface\\DialogFrame\\UI-DialogBox-Background","Cards use the clean dialog background")
-    if i>1 then check(not overlaps(V.bagRows[i-1],row),"Bag cards remain separate") end
+    if i>1 then
+        local px,py,pw,ph=rect(V.bagRows[i-1])
+        check(y-(py+ph)==2,"Bag rows retain a compact two-pixel gap")
+        check(not overlaps(V.bagRows[i-1],row),"Bag cards remain separate")
+    end
 end
 local row=V.bagRows[4];local targetID=row.bagID;local original=V:BagInstance(targetID)
 hover(row.choose);check(GameTooltip.title==V.bagCatalogByID[original.model].name,"Tooltip retains the full bag name")
@@ -315,9 +327,18 @@ check(tuner:IsShown() and V.placementTunerBag==targetID and V.tab=="bags","Click
 check(row.selected:IsShown(),"The tuned bag is highlighted in the list")
 choose(tuner.mountSelector,"Right hip")
 check(V:BagInstance(targetID).mount=="rightHip","Mount callback edits the chosen instance")
-choose(tuner.modelSelector,"Milloo Smooth Tan Leather")
-check(V:BagInstance(targetID).model==8 and V:BagInstance(targetID).mount=="rightHip","Replacing a model preserves its mount")
-check(not tuner.colorChoices:IsVisible(),"Color controls are hidden for other bags")
+choose(tuner.modelSelector,"Slim Leather Bag")
+check(V:BagInstance(targetID).model==5 and V:BagInstance(targetID).mount=="rightHip","Replacing a model preserves its mount")
+check(tuner.colorChoices:IsVisible() and not tuner.colorSwatches[4]:IsShown(),"Leather offers three colors without a stale fourth cloth swatch")
+for i,id in ipairs({5,7,8}) do
+    click(tuner.colorSwatches[i])
+    check(V:BagInstance(targetID).model==id and V:BagInstance(targetID).mount=="rightHip","Leather color keeps the mount and stable bag identity")
+    check(V.tab=="bags" and V.bagRows[4].title.text=="Slim Leather Bag","Leather variant shares its family name without changing pages")
+    check(V.bagRows[4].iconButton.icon.texture[1]==V.bagCatalogByID[id].icon,"Leather icon follows the selected color")
+end
+choose(tuner.modelSelector,"Slim Leather Bag");check(V:BagInstance(targetID).model==8,"Reselecting the leather family preserves Tan")
+choose(tuner.modelSelector,"Runecloth Bag");check(not tuner.colorChoices:IsVisible(),"Ungrouped models hide color controls")
+choose(tuner.modelSelector,"Slim Leather Bag");click(tuner.colorSwatches[3])
 local preservedID=V:BagInSlot(5).id
 click(V.bagRows[2].remove)
 check(table.getn(V:GetBags())==4 and V.bagRows[2]:IsVisible() and not V.bagRows[2].bagID,"Delete leaves its slot empty and visible")

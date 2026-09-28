@@ -1,4 +1,4 @@
-# Building Saurek's Closet 3.9.2
+# Building Saurek's Closet 4.0.1
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -29,7 +29,7 @@ The packager creates the installable addon ZIP, checks its integrity, and verifi
 
 The local Lua regression suite uses Lua 5.0.3 and extracted original Blizzard UI references listed in `tests/test.lua`. These client references are not distributed in this repository. Native test sources cover appearance state, previews, weapon routing, and attachment lifetime simulations.
 
-The 3.9.2 release passed the focused Lua suites for bags, wardrobe saving,
+The 4.0.1 release passed the focused Lua suites for bags, wardrobe saving,
 preview rotation, updates, armor recovery and equipment UI isolation; the native
 weapon, armor and equipment simulations passed address and undefined-behavior
 sanitizers (leak detection is unavailable in the traced build sandbox). All 83
@@ -99,11 +99,11 @@ Run `lua5.1 tests/wardrobe_save.lua`, `lua5.1 tests/minimap_toggle.lua`, and
 `lua5.1 tests/preview_drag.lua`. They exercise the real Save/New/Update handlers,
 edited-name tracking, live-preview and bag-fit capture, discard/cancel popup
 callbacks, failed-switch preservation, minimap controls and scaled mouse drag
-through model-buffer swaps. Release 3.9.2 uses native renderer 30902.
+through model-buffer swaps. Release 4.0.1 uses native renderer 40001.
 
-### Release 3.9.2
+### Release 4.0.1
 
-Addon 3.9.2, native renderer 30902 (DLL 3.9.2), and `update-version.txt` must agree.
+Addon 4.0.1, native renderer 40001 (DLL 4.0.1), and `update-version.txt` must agree.
 Run `python3 tests/release_version.py` after updating these references and packaging.
 Run `lua5.1 tests/body_arrow_loading.lua` for native texture-load failure handling.
 The five fixed bag slots preserve placements when another slot is cleared.

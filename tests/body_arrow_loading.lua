@@ -3,7 +3,7 @@
 -- leave no region when their first file load fails; explicit regions survive.
 table.getn=table.getn or function(t) return #t end
 math.mod=math.mod or math.fmod
-local custom="Interface\\AddOns\\SaureksCloset\\Textures\\BodyChevron.tga"
+local custom="Interface\\AddOns\\SaureksCloset\\Textures\\BodyArrow.tga"
 local mode="available"
 local customLoads=0
 local methods={}
@@ -118,14 +118,20 @@ for _,scenario in ipairs({"available","missing_custom","intermittent","missing_a
             check(t.width==size and t.height==size,"Visible glyph stays small")
             check(t.anchor[1]=="CENTER" and t.anchor[2]==arrow and t.anchor[3]=="CENTER" and t.anchor[4]==0 and t.anchor[5]==0,"Glyph shares the button center without a state offset")
             local u=expected<0 and 1 or 0
-            check(same(t.texCoord,{u,1-u,0,1}),"Direction changes only horizontal UVs")
+            local expectedUV={u,1-u,0,1}
+            if scenario=="available" then
+                expectedUV=expected<0 and {1,1,0,1,1,0,0,0} or {1,0,0,0,1,1,0,1}
+            end
+            check(same(t.texCoord,expectedUV),"Both gold arrows use the same rotation, mirrored only horizontally")
             check(t.texture==(scenario=="available" and custom or "Interface\\MoneyFrame\\Arrow-Right-Up"),"Every fallback uses the same right-facing native source")
             check(t.loaded==(scenario~="missing_all"),"All-missing textures remain safe")
             local anchor=t.anchor;local uv=t.texCoord
             local function unchanged(state)
                 check(t.anchor==anchor and t.texCoord==uv and t.width==size and t.height==size,"State "..state.." changes no visible geometry")
                 if geometry and scenario=="available" then
-                    geometry:write(key,"\t",direction,"\t",state,"\t",arrow.anchor[4],"\t",arrow.anchor[5],"\t",size,"\t",size,"\t",uv[1], "\t",uv[2],"\t",uv[3],"\t",uv[4],"\n")
+                    geometry:write(key,"\t",direction,"\t",state,"\t",arrow.anchor[4],"\t",arrow.anchor[5],"\t",size,"\t",size)
+                    for _,coordinate in ipairs(uv) do geometry:write("\t",coordinate) end
+                    geometry:write("\n")
                 end
             end
             unchanged("normal");check(t.tint[1]==.9 and t.tint[4]==1,"Normal glyph is gold")

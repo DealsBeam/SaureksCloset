@@ -267,6 +267,7 @@ end
 function V:SetTab(tab)
     if tab=="character" then tab=self.wardrobePage or "armor" end
     if not self.pagesByName or not self.pagesByName[tab] then return end
+    if self.CloseBagPlacementEditor then self:CloseBagPlacementEditor() end
     local wasCharacter=self.pagesByName.armor:IsVisible()
     if tab~="weaponry" then self:CloseWeaponOptions() end
     self:CloseOutfitMenu();self:CloseOutfitDetails();self:CloseBrowser();self.tab=tab
@@ -869,15 +870,17 @@ function V:CreateBagsPage(p)
     p:SetFrameLevel(self.frame:GetFrameLevel()+12)
     self.bagRows={}
     self.bagNotice=label(p,"",31,70,302,12,true);self.bagNotice:SetFont("Fonts\\FRIZQT__.TTF",9)
+    -- Leave a small inset from the pane edge; bags have no scrollbar gutter.
+    local rowWidth,rowHeight,rowStep=312,54,56
     for i=1,self.MAX_BAGS do
-        local row=section(p,23,83+(i-1)*60,318,56,false)
+        local row=section(p,23,83+(i-1)*rowStep,rowWidth,rowHeight,false)
         row.slot=i
         row:SetBackdropColor(.45,.40,.32,.95)
         self.bagRows[i]=row
-        row.selected=texture(row,"Interface\\QuestFrame\\UI-QuestTitleHighlight",4,4,310,48,"ARTWORK")
+        row.selected=texture(row,"Interface\\QuestFrame\\UI-QuestTitleHighlight",4,4,rowWidth-8,rowHeight-8,"ARTWORK")
         row.selected:SetBlendMode("ADD");row.selected:SetAlpha(.18);row.selected:Hide()
         local choose=CreateFrame("Button",nil,row);row.choose=choose
-        choose:SetPoint("TOPLEFT",row,"TOPLEFT",4,-4);choose:SetWidth(280);choose:SetHeight(48)
+        choose:SetPoint("TOPLEFT",row,"TOPLEFT",4,-4);choose:SetWidth(rowWidth-38);choose:SetHeight(rowHeight-8)
         choose:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
         choose.slot=i
         choose:SetScript("OnClick",function() V:OpenBagSlotTuner(this.slot) end)
@@ -888,17 +891,17 @@ function V:CreateBagsPage(p)
         end)
         choose:SetScript("OnLeave",function() GameTooltip:Hide() end)
         local b=CreateFrame("Button",nil,choose);row.iconButton=b;b.slot=i
-        b:SetPoint("TOPLEFT",choose,"TOPLEFT",5,-4);b:SetWidth(40);b:SetHeight(40)
+        b:SetPoint("TOPLEFT",choose,"TOPLEFT",5,-3);b:SetWidth(40);b:SetHeight(40)
         b.icon=texture(b,art.."BagIcon1.tga",0,0,40,40,"BORDER")
         b.border=texture(b,"Interface\\Buttons\\UI-Quickslot2",0,0,40*64/37,40*64/37,"ARTWORK")
         b.border:ClearAllPoints();b.border:SetPoint("CENTER",b,"CENTER",0,-40/37)
         b:SetScript("OnClick",choose:GetScript("OnClick"));b:SetScript("OnEnter",choose:GetScript("OnEnter"));b:SetScript("OnLeave",choose:GetScript("OnLeave"))
-        row.title=label(choose,"",57,6,220,18)
+        row.title=label(choose,"",57,5,rowWidth-98,18)
         row.title:SetFont("Fonts\\FRIZQT__.TTF",11);row.title:SetJustifyV("MIDDLE")
-        row.subtitle=label(choose,"",57,27,220,15,true)
+        row.subtitle=label(choose,"",57,25,rowWidth-98,15,true)
         row.subtitle:SetFont("Fonts\\FRIZQT__.TTF",10);row.subtitle:SetTextColor(.72,.70,.65)
         local remove=CreateFrame("Button",nil,row);row.remove=remove
-        remove:SetPoint("TOPLEFT",row,"TOPLEFT",290,-16);remove:SetWidth(24);remove:SetHeight(24)
+        remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",-4,-15);remove:SetWidth(24);remove:SetHeight(24)
         remove:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
         remove:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
         remove:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight","ADD")
@@ -1172,13 +1175,19 @@ function V:CreateBodyPage(p)
         -- Native button state textures and pressed offsets cannot move it.
         b:SetPoint("CENTER",control,"CENTER",direction=="Prev" and -50 or 50,0)
         local t=b:CreateTexture(nil,"ARTWORK");b.bodyGlyph=t
-        local loaded=t:SetTexture(art.."BodyChevron.tga")
+        local loaded=t:SetTexture(art.."BodyArrow.tga")
         b.bodyGlyphFallback=not loaded
         if not loaded then t:SetTexture("Interface\\MoneyFrame\\Arrow-Right-Up") end
         t:SetPoint("CENTER",b,"CENTER",0,0)
         local size=loaded and 14 or 12
         t:SetWidth(size);t:SetHeight(size)
-        if direction=="Prev" then t:SetTexCoord(1,0,0,1)
+        if loaded then
+            -- The extracted dropdown arrow points down. Rotate one source to
+            -- the right, then mirror horizontally; opposite rotations would
+            -- also flip its asymmetric shading and visible vertical bounds.
+            if direction=="Prev" then t:SetTexCoord(1,1,0,1,1,0,0,0)
+            else t:SetTexCoord(1,0,0,0,1,1,0,1) end
+        elseif direction=="Prev" then t:SetTexCoord(1,0,0,1)
         else t:SetTexCoord(0,1,0,1) end
         b.UpdateBodyGlyph=function(self)
             if self.closetEnabled==false then
@@ -1226,6 +1235,8 @@ function V:CreateBodyPage(p)
                 arrowButton.bodyGlyphFallback=true
                 arrowButton.bodyGlyph:SetTexture("Interface\\MoneyFrame\\Arrow-Right-Up")
                 arrowButton.bodyGlyph:SetWidth(12);arrowButton.bodyGlyph:SetHeight(12)
+                if arrowButton==previous then arrowButton.bodyGlyph:SetTexCoord(1,0,0,1)
+                else arrowButton.bodyGlyph:SetTexCoord(0,1,0,1) end
             end
         end
         self.bodyRows[key]={value=value,button=control,previous=previous,next=nextChoice,prefix=prefix}

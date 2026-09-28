@@ -6,6 +6,7 @@
 #include "BagCoordinates.h"
 #include "BagAirLift.h"
 #include "BagTuning.h"
+#include "BagResponse.h"
 // Dark Schoolbag is authored upright (+Z), outward (-X), with the origin at
 // the center of its back panel. Point 28 supplies the back surface; its
 // parent bone supplies the torso orientation, without a shield's sheath tilt.
@@ -13,7 +14,8 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
                          const std::array<float,16>& local,const std::array<float,3>& anchor,std::array<float,16>& out,
                          unsigned bag=1,BagMotion* motion=nullptr,std::uint32_t now=0,std::uintptr_t model=0,bool running=false,
                          const BagMatrix* modelToRender=nullptr,const BagMatrix* worldToRender=nullptr,float airLiftTarget=0,
-                         const BagTuningEntry* instanceFits=nullptr,unsigned baseMount=0,unsigned identity=0){
+                         const BagTuningEntry* instanceFits=nullptr,unsigned baseMount=0,unsigned identity=0,
+                         BagResponse* response=nullptr,const BagResponseProfile* responseProfile=nullptr,float flight=0){
     BagMatrix back=renderedBack,torso=renderedTorso,renderToModel{};
     if(modelToRender){
         if(!bagAffineInverse(*modelToRender,renderToModel))return false;
@@ -83,6 +85,30 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
         const bool directionReady=!worldToRender || (modelToRender&&bagWorldUpInModel(renderToModel,*worldToRender,worldUp,&verticalMeasure));
         // Revision changes reset once for the matching bag/race/sex. Repeated
         // identical Lua setters leave the motion history untouched.
+        if(response&&responseProfile){
+            if(tuning.motion&&directionReady){
+                const std::uint64_t fitKey=(std::uint64_t(identity)<<48)|(std::uint64_t(baseMount)<<40)|
+                    (std::uint64_t(fitIndex)<<32)|override.revision;
+                BagMatrix sample=target,renderToWorld;
+                auto gravity=worldUp;
+                bool sampleReady=true;
+                if(modelToRender&&worldToRender){
+                    sampleReady=bagAffineInverse(*worldToRender,renderToWorld);
+                    if(sampleReady){
+                        sample=bagMatrixProduct(bagMatrixProduct(renderToWorld,*modelToRender),target);
+                        gravity={{0,0,1}};
+                    }
+                }
+                // Include root travel/jumps and the offset from the mounting
+                // bone. Camera motion cancels before sample history is stored.
+                const float sampleScale=std::sqrt(sample[8]*sample[8]+sample[9]*sample[9]+sample[10]*sample[10]);
+                if(sampleReady)updateBagResponse(*response,sample,sampleScale,now,model,fitKey,*responseProfile,gravity,flight);
+                else *response={};
+            }else *response={};
+        }
+        // Keep the original mounting-point momentum and upward/outward fall
+        // lift. Local fabric controls are sampled from the unmodified mount
+        // above, so this rigid secondary movement cannot feed back into itself.
         if(tuning.motion&&directionReady){
             const auto fitted=target;
             smoothBagMotion(*motion,target,size,now,model,

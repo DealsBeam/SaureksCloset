@@ -20,6 +20,8 @@ using HasPoint=bool (__thiscall *)(void*,unsigned);
 using LoadChild=void (__fastcall *)(void*,unsigned,const char*,const char*,unsigned);
 using UpdateAttachedModel=void (__thiscall *)(void*,const float*,const float*,const float*,float);
 using BowStringDraw=void (__fastcall *)(void*,void*,void*);
+using ModelSequenceTime=void (__thiscall *)(void*,int,unsigned,int,unsigned,float,unsigned,unsigned);
+using ModelSequenceOffset=void (__thiscall *)(void*,int,unsigned);
 static WeaponCompose weaponComposeOriginal=nullptr;
 static SheathPoint sheathPointOriginal=nullptr;
 static MoveWeapon moveWeaponOriginal=nullptr;
@@ -41,6 +43,21 @@ static std::uint32_t bagClockMilliseconds(){
         return static_cast<std::uint32_t>((counter.QuadPart/frequency)*1000+(counter.QuadPart%frequency)*1000/frequency);
     return GetTickCount();
 }
+static bool writeBagResponseMatrices(std::uintptr_t address,const std::array<BagMatrix,61>& matrices){
+    MEMORY_BASIC_INFORMATION region{};
+    if(!address||!VirtualQuery(reinterpret_cast<const void*>(address),&region,sizeof(region))||region.State!=MEM_COMMIT||
+       (region.Protect&(PAGE_GUARD|PAGE_NOACCESS))||
+       !(region.Protect&(PAGE_READWRITE|PAGE_WRITECOPY|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY)))return false;
+    const auto start=reinterpret_cast<std::uintptr_t>(region.BaseAddress);
+    if(address<start||address-start>region.RegionSize||sizeof(matrices)>region.RegionSize-(address-start))return false;
+    std::array<BagMatrix,61> original;SIZE_T count=0;
+    if(!ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<const void*>(address),original.data(),sizeof(original),&count)||count!=sizeof(original))return false;
+    if(WriteProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(address),matrices.data(),sizeof(matrices),&count)&&count==sizeof(matrices))return true;
+    // No partial palette remains if a write unexpectedly fails. The renderer
+    // owns this heap allocation on its update thread for this entire call.
+    WriteProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(address),original.data(),sizeof(original),&count);
+    return false;
+}
 #endif
 static const auto retainChild=weaponFunction<DestroyModel>(0x710390);
 static const auto detachChild=weaponFunction<DestroyModel>(0x713020);
@@ -49,10 +66,14 @@ static const auto hasPoint=weaponFunction<HasPoint>(0x712CB0);
 static const auto loadChild=weaponFunction<LoadChild>(0x4798C0);
 static const auto refreshMelee=weaponFunction<void (__thiscall *)(void*,unsigned)>(0x605DA0);
 static const auto refreshRanged=weaponFunction<void (__thiscall *)(void*,unsigned)>(0x611E10);
+// The same native setter used by Model:SetSequenceTime at 0x76CF80.
+static const auto modelSequenceTime=weaponFunction<ModelSequenceTime>(0x7121A0);
+static const auto modelSequenceOffset=weaponFunction<ModelSequenceOffset>(0x7127F0);
 struct BagInstance {
     unsigned model=0,mount=0;
     void* child=nullptr;
     BagMotion motion;
+    BagResponse response;
     std::array<BagTuningEntry,16> fits{};
 };
 static unsigned bagAttachment(unsigned mount){return mount==1?32:mount==2?33:28;}
@@ -125,7 +146,7 @@ static void rememberClonedBagPreview(std::uintptr_t source,std::uintptr_t model)
         }
     if(!copy.child)if(const auto* previous=clonedBagChild(source)){copy=*previous;copy.child=model;}
     if(copy.child&&copy.guid==getPlayer()){
-        copy.bag.child=reinterpret_cast<void*>(model);copy.bag.motion={};
+        copy.bag.child=reinterpret_cast<void*>(model);copy.bag.motion={};copy.bag.response={};
         for(auto& entry:clonedBagChildren)if(entry.child==model){entry=copy;return;}
         for(auto& entry:clonedBagChildren)if(!entry.child){entry=copy;return;}
         return;
@@ -170,6 +191,7 @@ static bool bagIsRunning(const WeaponContext& context){
     constexpr unsigned notRunning=0x100|0x400|0x800|0x2000|0x4000|0x200000|0x800000|0x1000000|0x8000000;
     return !context.token&&context.unit&&read(context.unit+0x9E8,flags)&&(flags&0xF)&&!(flags&notRunning);
 }
+#include "ClothAnimation.h"
 static bool bagIsAirborne(const WeaponContext& context){
     // Build 5875 starts jump/drop motion with 0x2000 at 7C620B; extended
     // falling adds 0x4000 at 633240. Landing clears both at 7C629B.
@@ -192,6 +214,30 @@ static float bagAirLiftTarget(const WeaponContext& context){
     // Build toward full lift over the first eight units/second of descent;
     // crossing the apex starts at zero rather than switching to full tilt.
     return std::fmax(0.f,std::fmin(1.f,downSpeed/8.f));
+}
+static float bagResponseFlight(const WeaponContext& context){
+    if(!bagIsAirborne(context))return 0;
+    unsigned elapsed=0,flags=0;float initialDown=0;
+    if(!read(context.unit+0xA20,elapsed)||elapsed>600000||!read(context.unit+0xA48,initialDown)||
+       !std::isfinite(initialDown)||initialDown< -100.f||initialDown>100.f||!read(context.unit+0x9E8,flags))return 0;
+    const float speed=std::fmin((flags&0x20000000)?7.f:60.148f,initialDown+19.29110527f*(elapsed*.001f));
+    return std::fmax(-1.f,std::fmin(1.f,speed/8.f));
+}
+static bool bagResponseResource(std::uintptr_t model,const char* material,BagResponseProfile& profile){
+    std::uintptr_t data=0,header=0,name=0,definitions=0;unsigned size=0,bones=0;
+    static constexpr char marker[]="ClosetBagV3";
+    if(!read(model+0x30,data)||!data||!read(data+0x130,header)||!header||
+       !read(header+8,size)||size!=sizeof(marker)||!read(header+12,name)||!name||
+       !read(header+0x34,bones)||bones!=61||!read(header+0x38,definitions)||!definitions)return false;
+    for(unsigned i=0;i<sizeof(marker);++i){unsigned char value=0;if(!read(name+i,value)||value!=marker[i])return false;}
+    // The first/last lattice pivots are the exact REST bounds. Header bounds
+    // include deformation room for culling and must not define the response.
+    std::array<float,3> low{},high{};
+    if(!read(definitions+108+96,low)||!read(definitions+108*60+96,high))return false;
+    for(unsigned axis=0;axis<3;++axis)
+        if(!std::isfinite(low[axis])||!std::isfinite(high[axis])||high[axis]-low[axis]<.005f||high[axis]-low[axis]>10.f)return false;
+    profile=bagResponseProfile(material,low[2],high[2]);profile.low=low;profile.high=high;
+    return true;
 }
 static bool bagTuningLuaKey(void* L,unsigned& bag,unsigned& race,unsigned& sex){
     unsigned values[3]{};
@@ -275,15 +321,54 @@ static bool positionBackpack(void* child,std::array<float,16>& adjusted,bool smo
     if(!animatedAttachmentMatrix(parent,point,back,&torso)||!read(model+0xBC,local)||!read(parent+0xFC,modelToRender)||
        !read(parent+0x30,data)||!read(data+0x130,header)||!read(header+0x110,lookup)||
        !read(lookup+56,index)||!read(header+0x108,attachments)||!read(attachments+48*index+8,position)){
-        motion={};return false;
+        motion={};if(instance)instance->response={};return false;
     }
     BagMatrix worldToRender;std::uintptr_t scene=0;
-    if(smooth&&(!read(parent+0x2C,scene)||!scene||!read(scene+0x9C,worldToRender))){motion={};smooth=false;}
+    if(smooth&&(!read(parent+0x2C,scene)||!scene||!read(scene+0x9C,worldToRender))){
+        motion={};if(instance)instance->response={};smooth=false;
+    }
+    ClothAnimationResource cloth;
+    const bool clothReady=instance&&clothAnimationResource(model,instance->model,cloth);
+    BagResponseProfile responseProfile;bool responseReady=false;
+    if(instance){
+        const auto* asset=bagAsset(instance->model);
+        responseReady=bagResponseResource(model,asset->material,responseProfile);
+        if(!responseReady)instance->response={};
+    }
     const bool valid=bagPlacement(back,torso,local,position,adjusted,1,
         smooth?&motion:nullptr,smooth?bagClockMilliseconds():0,header,context&&bagIsRunning(*context),&modelToRender,
-        smooth?&worldToRender:nullptr,context?bagAirLiftTarget(*context):0,instance?instance->fits.data():nullptr,mount,identity);
-    if(!valid)motion={};
+        smooth?&worldToRender:nullptr,context?bagAirLiftTarget(*context):0,instance?instance->fits.data():nullptr,mount,identity,
+        instance&&smooth&&responseReady?&instance->response:nullptr,responseReady?&responseProfile:nullptr,context?bagResponseFlight(*context):0);
+    if(valid&&clothReady){
+        // Compatibility with an older cloth asset still installed on disk:
+        // clear its blend and hold the undeformed Stand pose. Native character
+        // Run/Jump/Fall transitions no longer select bag animation clips.
+        clothSetPlayback(child,cloth,0,0,false);
+    }
+    if(!valid){motion={};if(instance)instance->response={};}
     return valid;
+}
+static bool applyBagResponseBones(void* child){
+    const auto model=reinterpret_cast<std::uintptr_t>(child);
+    std::uintptr_t parent=0,bones=0;if(!read(model+0x1CC,parent))return false;
+    auto* context=weaponContext(parent);
+    BagInstance* instance=context&&context->guid==getPlayer()?ownedBagInstance(*context,child):nullptr;
+    if(!instance){
+        auto* cloned=clonedBagChild(model);
+        if(cloned&&cloned->guid==getPlayer()&&clonedBagOwner(parent)==cloned->guid)instance=&cloned->bag;
+    }
+    if(!instance)return false;
+    const auto* asset=bagAsset(instance->model);BagResponseProfile profile;BagMatrix modelToRender;std::uintptr_t parentBones=0;
+    if(!asset||!weaponModelMatches(child,asset->model)||!bagResponseResource(model,asset->material,profile)||
+       !read(model+0x94,bones)||!bones||!read(model+0xFC,modelToRender))return false;
+    if(read(parent+0x94,parentBones)&&parentBones==bones)return false;
+    for(auto value:modelToRender)if(!std::isfinite(value))return false;
+    if(std::fabs(modelToRender[15]-1.f)>.001f)return false;
+    // 0x714260 has now evaluated this child's bones. Rebuild from its current
+    // model/view transform, never last frame's deformed matrices. Root and
+    // attachment fields remain unchanged; CPU/GPU skinning consumes this
+    // per-instance matrix palette after the update returns.
+    return writeBagResponseMatrices(bones,bagResponseMatrices(instance->response,modelToRender));
 }
 static bool positionStoredBow(void* child,const float* attachment,std::array<float,16>& adjusted){
     std::uintptr_t parent=0;unsigned point=0;
@@ -566,7 +651,10 @@ static void updateWeaponAttachment(void* model,const float* matrix,const float* 
     bool instance=false;if(context)for(const auto& bag:context->bags)if(bag.child==model)instance=true;
     if((context&&context->backpack==model)||instance||clonedBag){
         // Wait for valid animated bones instead of briefly drawing a shield pose.
-        if(positionBackpack(model,adjusted,true))updateAttachedOriginal(model,adjusted.data(),color,lighting,alpha);
+        if(positionBackpack(model,adjusted,true)){
+            updateAttachedOriginal(model,adjusted.data(),color,lighting,alpha);
+            applyBagResponseBones(model);
+        }
         else updateAttachedOriginal(model,matrix,color,lighting,0);
         return;
     }
@@ -582,11 +670,28 @@ static void updateWeaponAttachment(void* model,const float* matrix,const float* 
     if((positioned||read(reinterpret_cast<std::uintptr_t>(matrix),base))&&tuneStoredPlacement(model,base,tuned))matrix=tuned.data();
     updateAttachedOriginal(model,matrix,color,lighting,alpha);
 }
-static void __fastcall updateAttachedHook(void* model,void*,const float* matrix,const float* color,const float* lighting,float alpha){
-    // Exact recursive child update after the animated attachment is resolved.
-    if(reinterpret_cast<std::uintptr_t>(__builtin_return_address(0))==0x718761)
+static bool ownedBagUpdate(void* model){
+    const auto child=reinterpret_cast<std::uintptr_t>(model);std::uintptr_t parent=0;
+    if(!read(child+0x1CC,parent))return false;
+    if(const auto* context=weaponContext(parent)){
+        if(context->guid!=getPlayer())return false;
+        if(context->backpack==model)return true;
+        for(const auto& bag:context->bags)if(bag.child==model)return true;
+    }
+    return clonedBagOwner(parent)==getPlayer()&&getPlayer()&&
+        (clonedBagChild(child)||weaponModelMatches(model,"Interface\\AddOns\\SaureksCloset\\Models\\DarkSchoolbag.mdx"));
+}
+static void updateAttachmentForCaller(void* model,const float* matrix,const float* color,const float* lighting,float alpha,std::uintptr_t caller){
+    // 0x714000 can lazily evaluate a child after its parent is already current
+    // (returns 0x71415D/0x714183). Those calls overwrite its complete palette
+    // too, so every owned-bag update must restore local deformation afterward.
+    // Other equipment keeps the original recursive-only routing restriction.
+    if(caller==0x718761||ownedBagUpdate(model))
         updateWeaponAttachment(model,matrix,color,lighting,alpha);
     else updateAttachedOriginal(model,matrix,color,lighting,alpha);
+}
+static void __fastcall updateAttachedHook(void* model,void*,const float* matrix,const float* color,const float* lighting,float alpha){
+    updateAttachmentForCaller(model,matrix,color,lighting,alpha,reinterpret_cast<std::uintptr_t>(__builtin_return_address(0)));
 }
 static void releaseExtras(WeaponContext& c){
     const auto extra=c.extra;c.extra.fill(nullptr);
@@ -611,7 +716,7 @@ static void releaseBackpack(WeaponContext& c){
     releaseModel(child);
 }
 static void releaseBagInstance(WeaponContext& context,BagInstance& bag){
-    auto* child=bag.child;bag.child=nullptr;bag.motion={};
+    auto* child=bag.child;bag.child=nullptr;bag.motion={};bag.response={};
     if(!child)return;
     std::uintptr_t parent=0;
     if(read(reinterpret_cast<std::uintptr_t>(child)+0x1CC,parent)&&parent==context.parent)detachChild(child);
@@ -1039,7 +1144,7 @@ static bool ensureBagInstances(WeaponContext& context){
                 releaseBagInstance(context,bag);
             }else if(owner&&(!read(child+0x1D0,actualPoint)||actualPoint!=point)){
                 detachChild(bag.child);attachChild(bag.child,reinterpret_cast<void*>(context.parent),point);
-                bag.motion={};
+                bag.motion={};bag.response={};
             }
         }
         if(!bag.child){

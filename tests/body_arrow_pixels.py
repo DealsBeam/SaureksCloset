@@ -1,4 +1,4 @@
-"""Compare shipped chevron pixels using geometry emitted by the real Lua UI."""
+"""Compare shipped gold-arrow pixels using geometry emitted by the real Lua UI."""
 from pathlib import Path
 import csv
 import os
@@ -7,7 +7,7 @@ import tempfile
 from PIL import Image, ImageChops
 
 root = Path(__file__).resolve().parents[1]
-source = Image.open(root / 'addon/SaureksCloset/Textures/BodyChevron.tga').convert('RGBA')
+source = Image.open(root / 'addon/SaureksCloset/Textures/BodyArrow.tga').convert('RGBA')
 with tempfile.TemporaryDirectory() as directory:
     records = Path(directory) / 'geometry.tsv'
     env = dict(os.environ, CLOSET_BODY_GEOMETRY=str(records))
@@ -20,10 +20,12 @@ for scale in (.64, .8, 1, 1.25, 1.5, 2):
     bounds = {}
     images = {}
     for key, side, state, *numbers in rows:
-        x, y, width, height, u0, u1, v0, v1 = map(float, numbers)
-        assert (v0, v1) == (0, 1), 'Vertical texture cropping must match'
-        assert (u0, u1) == ((1, 0) if side == 'previous' else (0, 1))
-        glyph = source.transpose(Image.Transpose.FLIP_LEFT_RIGHT) if u0 > u1 else source
+        x, y, width, height, *uv = map(float, numbers)
+        expected_uv = [1,1,0,1,1,0,0,0] if side == 'previous' else [1,0,0,0,1,1,0,1]
+        assert uv == expected_uv, 'Use the generated down arrow rotated right, with horizontal mirroring only'
+        glyph = source.transpose(Image.Transpose.ROTATE_90)
+        if side == 'previous':
+            glyph = glyph.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         size = (round(width * scale), round(height * scale))
         glyph = glyph.resize(size, Image.Resampling.BILINEAR)
         canvas = Image.new('RGBA', (400, 100))

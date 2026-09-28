@@ -4,7 +4,8 @@
     "name": "Amber Traveler Even Strap",
     "stem": "AmberTravelerEvenStrap",
     "source": "AmberTravelerEvenStrap.glb",
-    "origin": "Amber_Traveler_04_Even_Strap/Amber_Traveler_Even_Strap.glb"
+    "origin": "Amber_Traveler_04_Even_Strap/Amber_Traveler_Even_Strap.glb",
+    "material": "canvas"
   },
   {
     "id": 3,
@@ -12,7 +13,8 @@
     "stem": "BurgundyRucksack",
     "source": "BurgundyRucksack.glb",
     "origin": "Burgundy_Rucksack_05/Burgundy_Rucksack.glb",
-    "retired": true
+    "retired": true,
+    "material": "canvas"
   },
   {
     "id": 4,
@@ -20,14 +22,16 @@
     "stem": "MillooDarkLeather",
     "source": "MillooDarkLeather.glb",
     "origin": "Milloo_Dark_Leather/Milloo_Dark_Leather.glb",
-    "retired": true
+    "retired": true,
+    "material": "leather"
   },
   {
     "id": 5,
-    "name": "Milloo No Zippers",
+    "name": "Slim Leather Bag (Brown)",
     "stem": "MillooNoZippers",
     "source": "MillooNoZippers.glb",
-    "origin": "Milloo_No_Zippers/Milloo_No_Zippers.glb"
+    "origin": "Milloo_No_Zippers/Milloo_No_Zippers.glb",
+    "material": "leather"
   },
   {
     "id": 6,
@@ -35,21 +39,24 @@
     "stem": "MillooScratch",
     "source": "MillooScratch.glb",
     "origin": "Milloo_Scratch/Milloo_Scratch.glb",
-    "retired": true
+    "retired": true,
+    "material": "leather"
   },
   {
     "id": 7,
-    "name": "Milloo Smooth Dark Leather",
+    "name": "Slim Leather Bag (Dark Brown)",
     "stem": "MillooSmoothDarkLeather",
     "source": "MillooSmoothDarkLeather.glb",
-    "origin": "Milloo_Smooth_Dark_Leather/Milloo_Smooth_Dark_Leather.glb"
+    "origin": "Milloo_Smooth_Dark_Leather/Milloo_Smooth_Dark_Leather.glb",
+    "material": "leather"
   },
   {
     "id": 8,
-    "name": "Milloo Smooth Tan Leather",
+    "name": "Slim Leather Bag (Tan)",
     "stem": "MillooSmoothTanLeather",
     "source": "MillooSmoothTanLeather.glb",
-    "origin": "Milloo_Smooth_Tan_Leather/Milloo_Smooth_Tan_Leather.glb"
+    "origin": "Milloo_Smooth_Tan_Leather/Milloo_Smooth_Tan_Leather.glb",
+    "material": "leather"
   },
   {
     "id": 9,
@@ -57,42 +64,48 @@
     "stem": "MillooTanLeather",
     "source": "MillooTanLeather.glb",
     "origin": "Milloo_Tan_Leather/Milloo_Tan_Leather.glb",
-    "retired": true
+    "retired": true,
+    "material": "leather"
   },
   {
     "id": 10,
     "name": "Ranger Rucksack",
     "stem": "RangerRucksack",
     "source": "RangerRucksack.glb",
-    "origin": "Ranger_Rucksack_02/Ranger_Rucksack.glb"
+    "origin": "Ranger_Rucksack_02/Ranger_Rucksack.glb",
+    "material": "canvas"
   },
   {
     "id": 11,
     "name": "Black Leather Sling",
     "stem": "BlackLeatherSling",
     "source": "BlackLeatherSling.glb",
-    "origin": "black-leather-sling/Black_Leather_Sling.glb"
+    "origin": "black-leather-sling/Black_Leather_Sling.glb",
+    "material": "leather"
   },
   {
     "id": 12,
-    "name": "Burgundy Cloth Pouch Low",
+    "name": "Mageweave Bag (Burgundy)",
     "stem": "BurgundyClothPouchLow",
     "source": "BurgundyClothPouchLow.glb",
-    "origin": "cloth-pouch-color-variants/burgundy/Burgundy_Cloth_Pouch_WoW_Low.glb"
+    "origin": "cloth-pouch-color-variants/burgundy/Burgundy_Cloth_Pouch_WoW_Low.glb",
+    "material": "cloth"
   },
   {
     "id": 13,
-    "name": "Navy Cloth Pouch Low",
+    "name": "Mageweave Bag (Navy)",
     "stem": "NavyClothPouchLow",
     "source": "NavyClothPouchLow.glb",
-    "origin": "cloth-pouch-color-variants/navy/Navy_Cloth_Pouch_WoW_Low.glb"
+    "origin": "cloth-pouch-color-variants/navy/Navy_Cloth_Pouch_WoW_Low.glb",
+    "material": "cloth"
   },
   {
     "id": 14,
-    "name": "Ochre Cloth Pouch Low",
+    "name": "Mageweave Bag (Ochre)",
     "stem": "OchreClothPouchLow",
     "source": "OchreClothPouchLow.glb",
-    "origin": "cloth-pouch-color-variants/ochre/Ochre_Cloth_Pouch_WoW_Low.glb"
+    "origin": "cloth-pouch-color-variants/ochre/Ochre_Cloth_Pouch_WoW_Low.glb",
+    "material": "cloth"
   },
   {
     "id": 15,
@@ -101,13 +114,15 @@
     "source": "OliveClothPouch.glb",
     "origin": "olive-cloth-pouch/Olive_Cloth_Pouch.glb",
     "retired": true,
-    "replacement": 16
+    "replacement": 16,
+    "material": "cloth"
   },
   {
     "id": 16,
-    "name": "Olive Cloth Pouch Low",
+    "name": "Mageweave Bag (Olive)",
     "stem": "OliveClothPouchLow",
     "source": "OliveClothPouchLow.glb",
-    "origin": "olive-cloth-pouch-wow-low/Olive_Cloth_Pouch_WoW_Low.glb"
+    "origin": "olive-cloth-pouch-wow-low/Olive_Cloth_Pouch_WoW_Low.glb",
+    "material": "cloth"
   }
 ]

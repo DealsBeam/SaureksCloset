@@ -2,7 +2,7 @@
 
 # Saurek's Closet - A damn fine 1.12 Transmog
 
-**Release 3.9.2 · Addon and DLL 3.9.2**
+**Release 4.0.1 · Addon and DLL 4.0.1**
 
 **World of Warcraft 1.12.1 · Build 5875**
 
@@ -31,7 +31,7 @@ Saurek's Closet morphs how your character looks on your own client. Your actual 
 
 ### Visible Bags with dynamic physics
 
-- Five fixed bag slots, eight model choices, and four Cloth Pouch colors. Choose a model by its icon, then tune its placement.
+- Five fixed bag slots, six model choices, four Mageweave Bag colors, and three Slim Leather Bag colors. Choose a model by its icon, then tune its placement.
 
 <table>
 <tr>

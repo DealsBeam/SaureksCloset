@@ -9,20 +9,35 @@ function V:CreatePreviewDragSurface(parent,modelKey,bufferKey)
     surface:SetFrameLevel(math.max(model:GetFrameLevel(),buffer:GetFrameLevel())+1)
     model:EnableMouse(false);buffer:EnableMouse(false)
     surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
-    local function stop() surface.cursorX=nil end
+    local function stop()
+        surface.cursorX=nil;surface.cursorY=nil;surface.placing=nil;surface.button=nil
+        if modelKey=="model" and V.EndBagPlacementDrag then V:EndBagPlacementDrag() end
+    end
     surface:SetScript("OnMouseDown",function()
-        if arg1=="LeftButton" then surface.cursorX=GetCursorPosition() end
+        local placement=modelKey=="model" and V.bagPlacementEditing
+        if arg1=="LeftButton" or (placement and arg1=="RightButton") then
+            if placement and arg1=="LeftButton" then
+                if not V:BeginBagPlacementDrag() then return end
+                surface.placing=true
+            end
+            surface.button=arg1;surface.cursorX,surface.cursorY=GetCursorPosition()
+        end
     end)
-    surface:SetScript("OnMouseUp",function() if arg1=="LeftButton" then stop() end end)
+    surface:SetScript("OnMouseUp",function() if arg1==surface.button then stop() end end)
     -- Registering the drag keeps window movement on the window's own frame.
     surface:SetScript("OnDragStart",function() end)
     surface:SetScript("OnDragStop",stop)
     surface:SetScript("OnHide",stop)
     surface:SetScript("OnUpdate",function()
         if not surface.cursorX then return end
-        local x=GetCursorPosition()
+        local x,y=GetCursorPosition()
         local delta=(x-surface.cursorX)/surface:GetEffectiveScale()
-        surface.cursorX=x
+        local vertical=(y-surface.cursorY)/surface:GetEffectiveScale()
+        surface.cursorX=x;surface.cursorY=y
+        if surface.placing then
+            if (delta~=0 or vertical~=0) and not V:MoveBagPlacement(delta,vertical,V.model:GetHeight(),V.model.rotation or .61) then stop() end
+            return
+        end
         if delta==0 then return end
         local current=V[modelKey]
         local rotation=math.mod((current.rotation or .61)+delta*.01,2*math.pi)

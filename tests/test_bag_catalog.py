@@ -14,7 +14,10 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from build_bag_model import read_glb, write_m2, write_blp
-from build_bag_catalog import LEGACY, TARGET_HEIGHT, CLOTH_POUCH, lua_catalog
+from build_bag_catalog import LEGACY, TARGET_HEIGHT, CLOTH_POUCH, SLIM_LEATHER, CLOTH_BAKE, CLOTH_IDS, lua_catalog, validate_cloth_bake_geometry
+from build_bag_deformation import write_deformable_m2
+from test_bag_deformation import audit as audit_deformation
+from collections import Counter
 
 source_entries = json.loads((ROOT / 'assets/bags/catalog.json').read_text())
 manifest = json.loads((ROOT / 'native/BAG-ASSETS.json').read_text())
@@ -31,18 +34,33 @@ lua = (ROOT / 'addon/SaureksCloset/BagCatalog.lua').read_text()
 header = (ROOT / 'native/BagCatalog.h').read_text()
 assert lua == lua_catalog([LEGACY] + source_entries), 'Regeneration must preserve retired model choices'
 assert [int(i) for i in re.findall(r'\{id=(\d+),', lua.split('V.bagCatalogByID={}')[0])] == [1, 2, 5, 7, 8, 10, 11, 12, 13, 14, 16]
-assert CLOTH_POUCH['id'] == 16 and CLOTH_POUCH['name'] == 'Cloth Pouch'
+assert CLOTH_POUCH['id'] == 16 and CLOTH_POUCH['name'] == 'Mageweave Bag'
 assert [(c['id'], c['name']) for c in CLOTH_POUCH['colors']] == [(12, 'Burgundy'), (13, 'Navy'), (14, 'Ochre'), (16, 'Olive')]
-assert len(re.findall(r'^    V.bagCatalogByID\[\d+\],', lua, re.M)) == 7
+assert SLIM_LEATHER['name']=='Slim Leather Bag' and SLIM_LEATHER['id']==5
+assert [(c['id'],c['name']) for c in SLIM_LEATHER['colors']]==[(5,'Brown'),(7,'Dark Brown'),(8,'Tan')]
+assert len(re.findall(r'^    V.bagCatalogByID\[\d+\],', lua, re.M)) == 4
 for model_id in [1, 2, 5, 7, 8, 10, 11, 12, 13, 14, 16]:
     assert json.dumps('Interface\\AddOns\\SaureksCloset\\Textures\\BagIcon%d.tga' % model_id) in lua
 assert len(re.findall(r'^    \{\d+,', header, re.M)) == len(bags)
+assert {e['id']: e['material'] for e in [LEGACY] + source_entries} == {
+    1:'cloth', 2:'canvas', 3:'canvas', 4:'leather', 5:'leather', 6:'leather',
+    7:'leather', 8:'leather', 9:'leather', 10:'canvas', 11:'leather',
+    12:'cloth', 13:'cloth', 14:'cloth', 15:'cloth', 16:'cloth'}, 'Bag material must follow the selected asset'
+for entry in [LEGACY] + source_entries:
+    row=next(line for line in header.splitlines() if line.startswith('    {%d,' % entry['id']))
+    assert row.endswith(',%s},' % json.dumps(entry['material']))
+    if not entry.get('retired'):
+        row=next(line for line in lua.splitlines() if line.startswith('    {id=%d,' % entry['id']))
+        assert 'material=%s' % json.dumps(entry['material']) in row
 all_files = {'ASSETS-LICENSE'}
 triangles_total = 0
 quality = []
 cloth_geometry = None
 cloth_textures = set()
 for bag in bags:
+    advanced = True
+    assert not bag.get('animation'), 'No race-specific clip playback may ship'
+    assert bag['deformation']=='ClosetBagV3'
     source = ROOT / 'assets/DarkSchoolbag.glb' if bag['id'] == 1 else ROOT / 'assets/bags' / bag['source']
     assert hashlib.sha256(source.read_bytes()).hexdigest() == bag['source_sha256']
     vertices, triangles, atlas = read_glb(source)
@@ -76,29 +94,44 @@ for bag in bags:
     for i in range(n):
         values = S.unpack_from('<3f8B3f4f', model, offset + i * 48)
         assert all(math.isfinite(v) for v in values)
-        assert values[3:11] == (255, 0, 0, 0, 0, 0, 0, 0)
+        if advanced:
+            assert sum(values[3:7]) == 255
+        else:
+            assert values[3:11] == (255, 0, 0, 0, 0, 0, 0, 0)
         assert abs(sum(v*v for v in values[11:14]) - 1) < .001
         assert all(0 <= v <= 1 for v in values[14:16])
         positions.append(values[:3])
     low, high = S.unpack_from('<3f', model, 0xb4), S.unpack_from('<3f', model, 0xc0)
-    assert low == tuple(min(p[i] for p in positions) for i in range(3))
-    assert high == tuple(max(p[i] for p in positions) for i in range(3))
+    rest_low = tuple(min(p[i] for p in positions) for i in range(3))
+    rest_high = tuple(max(p[i] for p in positions) for i in range(3))
+    if advanced:
+        assert all(low[i] <= rest_low[i] and high[i] >= rest_high[i] for i in range(3))
+        low, high = rest_low, rest_high
+    else:
+        assert low == rest_low and high == rest_high
     assert high[0] == 0 and low[0] < 0
     assert abs(low[1] + high[1]) < .00001 and abs(low[2] + high[2]) < .00001
     assert abs(high[2] - low[2] - TARGET_HEIGHT) < .00001
     count, bone = array(0x34, 108)
-    assert count == 1 and S.unpack_from('<h', model, bone + 8)[0] == -1
+    assert count == (bag['bones'] if advanced else 1) and S.unpack_from('<h', model, bone + 8)[0] == -1
     count, view = array(0x4c, 44)
     assert count == 1
     ni, offset = array(view, 2)
-    assert ni == n and S.unpack_from('<' + 'H' * n, model, offset) == tuple(range(n))
+    if not advanced:
+        assert ni == n and S.unpack_from('<' + 'H' * n, model, offset) == tuple(range(n))
     nt, offset = array(view + 8, 2)
     assert nt == len(triangles) == bag['triangles'] * 3 and nt < 65536
-    assert S.unpack_from('<' + 'H' * nt, model, offset) == tuple(triangles)
+    if not advanced:
+        assert S.unpack_from('<' + 'H' * nt, model, offset) == tuple(triangles)
     assert max(triangles) < n
     count, offset = array(view + 24, 32)
-    assert count == 1 and S.unpack_from('<10H', model, offset)[2:10] == (0, n, 0, nt, 1, 0, 1, 0)
-    assert array(view + 32, 24)[0] == 1
+    if advanced:
+        sections,drawn=audit_deformation(model_path)
+        assert sections==count==bag['submeshes']
+        assert drawn==Counter(tuple(triangles[i:i+3]) for i in range(0,len(triangles),3)), 'Skinning lost or changed source faces'
+    else:
+        assert count == 1 and S.unpack_from('<10H', model, offset)[2:10] == (0, n, 0, nt, 1, 0, 1, 0)
+    assert array(view + 32, 24)[0] == count
     count, texture = array(0x5c, 16)
     assert count == 1
     kind, flags, length, offset = S.unpack_from('<4I', model, texture)
@@ -122,16 +155,22 @@ for bag in bags:
     image = Image.open(io.BytesIO(atlas)).convert('RGB').resize((width, width), Image.Resampling.LANCZOS)
     decoded = Image.open(blp_path).convert('RGB')
     assert image.size == decoded.size
-    error = sum((a-b)**2 for p, q in zip(image.get_flattened_data(), decoded.get_flattened_data()) for a, b in zip(p, q)) / (width*width*3)
+    # Ubuntu's supported Pillow and newer developer runtimes expose both names.
+    def pixels(image):
+        return image.get_flattened_data() if hasattr(image, 'get_flattened_data') else image.getdata()
+    error = sum((a-b)**2 for p, q in zip(pixels(image), pixels(decoded)) for a, b in zip(p, q)) / (width*width*3)
     psnr = 10 * math.log10(255**2/error)
     assert psnr > 28, (bag['name'], psnr)
     quality.append(psnr)
     with tempfile.TemporaryDirectory() as temp:
         m2_out, blp_out = Path(temp) / 'test.m2', Path(temp) / 'test.blp'
-        write_m2(vertices, triangles, m2_out, bag['stem'])
+        if advanced:
+            write_deformable_m2(vertices, triangles, m2_out, bag['stem'])
+        else:
+            write_m2(vertices, triangles, m2_out, bag['stem'])
         write_blp(atlas, blp_out, size=128 if bag['id'] == 1 else None)
         assert m2_out.read_bytes() == model and blp_out.read_bytes() == blp
     triangles_total += bag['triangles']
 assert {p.name for p in (ROOT / 'addon/SaureksCloset/Models').iterdir() if p.is_file()} == all_files
 assert len(cloth_textures) == 4
-print('PASS: 8 bag choices, 4 cloth colors, 11 active assets, 5 retired IDs; all 16 compatibility assets retain stable IDs, centered normalized meshes, bounded M2 arrays, matching atlases, full mip chains, deterministic rebuilds; %d triangles total; minimum texture fidelity %.1f dB.' % (triangles_total, min(quality)))
+print('PASS: 6 bag choices, 4 cloth colors, 3 leather colors, 11 active assets, 5 retired IDs; all 16 compatibility assets retain stable IDs, centered normalized meshes, bounded M2 arrays, matching atlases, full mip chains, deterministic rebuilds; %d triangles total; minimum texture fidelity %.1f dB.' % (triangles_total, min(quality)))

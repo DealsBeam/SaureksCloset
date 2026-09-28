@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install test dependencies
-        run: sudo apt-get update && sudo apt-get install -y lua5.1 python3-pil
+        run: sudo apt-get update && sudo apt-get install -y lua5.1 python3-pil python3-numpy
       - name: Prepare bundled renderer verification
         run: cp 'addon/SaureksCloset/Installation instructions/SaureksCloset.dll' native/SaureksCloset.dll
       - name: Run release regression checks

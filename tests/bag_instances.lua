@@ -101,13 +101,20 @@ assert(VanityStudioDB.outfits["Retired models"].weapons.bags[1].model==16)
 V:ClearAll()
 -- All catalog entries are selectable; capacity and independent IDs are enforced.
 assert(table.getn(V.bagCatalog)==11)
-assert(table.getn(V.bagModelChoices)==8)
+assert(table.getn(V.bagModelChoices)==6)
 local pouch=V:BagModelChoice(16)
-assert(pouch.name=="Cloth Pouch" and pouch.id==16 and table.getn(pouch.colors)==4)
+assert(pouch.name=="Mageweave Bag" and pouch.id==16 and table.getn(pouch.colors)==4)
 for i,id in ipairs({12,13,14,16}) do
     local color=V:BagModelColor(id)
     assert(V:BagModelChoice(id)==pouch and color==pouch.colors[i] and color.id==id)
     assert(color.name==({"Burgundy","Navy","Ochre","Olive"})[i])
+end
+local leather=V:BagModelChoice(5)
+assert(leather.name=="Slim Leather Bag" and leather.id==5 and table.getn(leather.colors)==3)
+for i,id in ipairs({5,7,8}) do
+    local color=V:BagModelColor(id)
+    assert(V:BagModelChoice(id)==leather and color==leather.colors[i] and color.id==id)
+    assert(color.name==({"Brown","Dark Brown","Tan"})[i])
 end
 assert(not V:BagModelColor(1) and V:BagModelChoice(1)==V.bagCatalogByID[1])
 assert(not V:BagModelChoice(15) and not V:BagModelColor(999))
@@ -148,7 +155,9 @@ assert(V:SetBagModel(2,16,true))
 assert(shown and V.placementTunerBag==2 and V.bagTunerPaused)
 assert(V:BagInstance(2).fits["1:0"].up==.23 and V:GetBagTunerState().values.up==.41)
 assert(not V.bagTunerDrafts[oldKey] and contexts[0][2].model==16 and contexts[0][2].fits["1:0"].motion==0)
-for _,color in ipairs(pouch.colors) do
+local variants={}
+for _,group in ipairs({pouch,leather}) do for _,color in ipairs(group.colors) do table.insert(variants,color) end end
+for _,color in ipairs(variants) do
     assert(V:SetBagModel(2,color.id,true))
     assert(V:GetBagTunerState().values.up==.41 and V:BagInstance(2).fits["1:0"].up==.23)
     assert(V:BagInstance(2).mount=="leftHip" and V.placementTunerBag==2 and V.bagTunerPaused)

@@ -2,7 +2,7 @@
 
 # Saurek's Closet - A Damn Fine 1.12 Transmog
 
-**Release 3.9.2 · Addon and DLL 3.9.2**
+**Release 4.0.1 · Addon and DLL 4.0.1**
 
 Supported on Linux, Windows, and Mac
 
@@ -34,7 +34,7 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 
 ### Visible Bags with dynamic physics
 
-- Five fixed bag slots, eight model choices, and four Cloth Pouch colors. Choose each bag by its icon, then tune it on the back or either hip.
+- Five fixed bag slots, six model choices, four Mageweave Bag colors, and three Slim Leather Bag colors. Choose each bag by its icon, then tune it on the back or either hip.
 - Bags stay consistently sized for realism. A Runecloth bag on a gnome would take up their whole back, versus a Tauren that could comfortably fit 4 or more. In the bag precision tuner you can adjust their size if you want to.
 - Hard physics: Hard leather bags rock and bounce realistically, as if they had weight. Jumping/falling causes the bag to tilt and fly up in the air realistically.
 - Soft physics: cloth bags are simulated with different sized cubes jostling around inside the bags in Blender, using motion vectors extracted from all race and gender combos performing different animations. The resulting bag movements are recoded and baked into the game. This makes it appear as if advanced source engine style physics are utilized with no runtime cost.

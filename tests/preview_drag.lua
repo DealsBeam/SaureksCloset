@@ -104,4 +104,20 @@ begin(main,10);move(main,40);near(V.model.rotation,1.8)
 event(main,"OnMouseUp","LeftButton")
 V.model.rotation=nil
 begin(main,0);move(main,10);near(V.model.rotation,.71)
+event(main,"OnMouseUp","LeftButton")
+-- Placement changes only the selected bag. Right-drag remains a view gesture.
+local moves,ended=0,0
+V.bagPlacementEditing=true
+function V:BeginBagPlacementDrag() return true end
+function V:EndBagPlacementDrag() ended=ended+1 end
+function V:MoveBagPlacement(dx,dy,height,rotation)
+    near(dx,10);near(dy,-5);assert(height==272 and rotation==.71);moves=moves+1;return true
+end
+function frame:GetHeight() return 272 end
+main.scale=2
+begin(main,100,100);move(main,120,90);assert(moves==1);near(V.model.rotation,.71)
+event(main,"OnMouseUp","LeftButton");assert(ended==1 and not main.placing)
+begin(main,100,100,"RightButton");move(main,120,0);near(V.model.rotation,.81);assert(moves==1)
+event(main,"OnMouseUp","RightButton");assert(not main.cursorX)
+begin(main,0,0);event(main,"OnHide");assert(not main.placing and not main.cursorX)
 print("PASS: preview drag mouse capture, scaled movement, both previews, buffer swaps, release/hide and rotation wrap ("..checks.." checks)")

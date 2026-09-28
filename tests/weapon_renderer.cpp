@@ -34,6 +34,11 @@ static void unref(void* p){assert(refs[address(p)]>0);if(--refs[address(p)]==0)f
 static const auto releaseModel=&unref;
 template<typename T> static bool read(std::uintptr_t a,T& out){auto i=memory.find(a);if(i==memory.end())return false;out=static_cast<T>(i->second);return true;}
 static std::map<std::uintptr_t,std::array<float,16>> matrices;
+static bool writeBagResponseMatrices(std::uintptr_t address,const std::array<std::array<float,16>,61>& values){
+    for(unsigned i=0;i<values.size();++i)if(!matrices.count(address+64*i))return false;
+    for(unsigned i=0;i<values.size();++i)matrices[address+64*i]=values[i];
+    return true;
+}
 static bool read(std::uintptr_t a,std::array<float,16>& out){auto i=matrices.find(a);if(i==matrices.end())return false;out=i->second;return true;}
 static std::map<std::uintptr_t,std::array<float,3>> positions;
 static bool read(std::uintptr_t a,std::array<float,3>& out){auto i=positions.find(a);if(i==positions.end())return false;out=i->second;return true;}
@@ -79,6 +84,23 @@ static bool supports(void*,unsigned point){return point<34;}
 static void factory(void*,unsigned,const char*,const char*,unsigned);
 static void melee(void*,unsigned);
 static void ranged(void*,unsigned);
+struct SequenceCall { void* model;unsigned animation,time,blend;bool full; };
+static std::vector<SequenceCall> sequenceCalls;
+static void sequenceTime(void* model,int key,unsigned animation,int variation,unsigned time,float speed,unsigned blend,unsigned primary){
+    assert(key==-1&&variation==0&&speed==1.f&&blend<=1&&primary==1);
+    sequenceCalls.push_back({model,animation,time,blend,true});
+    std::uintptr_t state=0;
+    if(read(address(model)+0x90,state)&&state){
+        std::uintptr_t resource=0,header=0,lookup=0;unsigned index=animation==5?1:0;
+        if(read(address(model)+0x30,resource)&&read(resource+0x130,header)&&read(header+0x28,lookup))read(lookup+animation*2,index);
+        memory[state+0xF8]=animation;memory[state+0xA4]=index;
+    }
+}
+static void sequenceOffset(void* model,int key,unsigned time){
+    std::uintptr_t state=0;unsigned animation=0;
+    assert(key==-1&&read(address(model)+0x90,state)&&state&&read(state+0xF8,animation));
+    sequenceCalls.push_back({model,animation,time,0,false});
+}
 template<typename T> static T weaponFunction(std::uintptr_t a){
     if constexpr(std::is_same_v<T,decltype(&ref)>){
         if(a==0x710390)return &ref;
@@ -87,6 +109,8 @@ template<typename T> static T weaponFunction(std::uintptr_t a){
     else if constexpr(std::is_same_v<T,decltype(&supports)>){if(a==0x712CB0)return &supports;}
     else if constexpr(std::is_same_v<T,decltype(&factory)>){if(a==0x4798C0)return &factory;}
     else if constexpr(std::is_same_v<T,decltype(&melee)>){if(a==0x605DA0)return &melee;if(a==0x611E10)return &ranged;}
+    else if constexpr(std::is_same_v<T,decltype(&sequenceTime)>){if(a==0x7121A0)return &sequenceTime;}
+    else if constexpr(std::is_same_v<T,decltype(&sequenceOffset)>){if(a==0x7127F0)return &sequenceOffset;}
     assert(false);return nullptr;
 }
 #include "../native/WeaponRenderer.h"
@@ -213,10 +237,19 @@ struct AttachmentUpdate {
 };
 static AttachmentUpdate attachmentUpdate;
 static bool captureAttachmentMatrix=false;
+static bool evaluateAttachmentBones=false;
 static std::array<float,16> capturedAttachmentMatrix;
 static void observeAttachment(void* model,const float* matrix,const float* color,const float* lighting,float alpha){
     attachmentUpdate={model,matrix,color,lighting,alpha,attachmentUpdate.calls+1};
     if(captureAttachmentMatrix)for(unsigned i=0;i<16;++i)capturedAttachmentMatrix[i]=matrix[i];
+    if(evaluateAttachmentBones){
+        BagMatrix attachment;for(unsigned i=0;i<16;++i)attachment[i]=matrix[i];
+        const auto base=address(model);const auto pose=bagMatrixProduct(attachment,matrices.at(base+0xBC));
+        matrices[base+0xFC]=pose;
+        // Build 5875's update writes each untracked control from the root pose.
+        // A later hook must replace this before either skinning route reads it.
+        for(unsigned i=0;i<61;++i)matrices[memory.at(base+0x94)+64*i]=pose;
+    }
 }
 struct BowStringSubmission {void* model=nullptr;void* renderState=nullptr;void* unit=nullptr;unsigned calls=0;};
 static BowStringSubmission bowStringSubmission;
@@ -1973,6 +2006,178 @@ int main(){
         off=bagRequest(87);assert(setBagsStatus(&off)==1&&!weaponContext(previewParent));previews.entries[0]={};
         assert(setBagInstanceFit(&firstFit)==-1);firstFit.values[4]=0;assert(setBagInstanceFit(&firstFit)==1);
         std::cout<<"PASS: eight independent bags, all body hip anchors, private preview fits, duplicate clone identity, deletion and load recovery\n";
+    }
+    // Placement response dispatch: old cloth assets stay in Stand while every
+    // body/mount uses its own local response alongside the original rigid motion.
+    {
+        const auto oldContexts=weaponContexts;
+        auto& c=weaponContexts[0];c={};c.parent=0xC1A000;c.unit=player.unit;c.guid=player.guid;
+        auto& bag=c.bags[0];bag.model=12;bag.child=pointer(0xC1B000);
+        auto* child=bag.child;const auto model=address(child);
+        modelName(pointer(c.parent),"Character\\Human\\Female\\HumanFemale.mdx");
+        modelName(child,bagAsset(12)->model);
+        const auto parentData=memory[c.parent+0x30],childData=memory[model+0x30];
+        const std::uintptr_t ph=0xC20000,ch=0xC21000,ps=0xC22000,cs=0xC23000,al=0xC24000,records=0xC25000;
+        memory[parentData+0x130]=ph;memory[childData+0x130]=ch;
+        memory[model+0x1CC]=c.parent;memory[model+0x1D0]=28;matrices[model+0xBC]=identity;
+        memory[ph+0x10C]=34;memory[ph+0x110]=al;memory[al+56]=0;memory[al+64]=1;
+        memory[ph+0x104]=2;memory[ph+0x108]=records;
+        memory[records]=28;memory[records+4]=1;positions[records+8]=bagFits[1].anchor;
+        memory[records+48]=32;memory[records+52]=1;positions[records+56]=bagFits[1].anchor;
+        memory[ph+0x34]=2;memory[ph+0x38]=0xC26000;memory[0xC26000+108+8]=0;
+        memory[c.parent+0x94]=0xC27000;matrices[0xC27000]=identity;matrices[0xC27000+64]=identity;
+        matrices[c.parent+0xFC]=identity;memory[c.parent+0x2C]=0xC28000;matrices[0xC28000+0x9C]=identity;
+        memory[c.parent+0x90]=0xC29000;memory[0xC29000+0x98]=1333;memory[0xC29000+0x9c]=1;
+        memory[ph+0x1c]=2;memory[ph+0x20]=ps;memory[ps+68]=5;memory[ps+72]=1000;memory[ps+76]=1666;
+        static constexpr char marker[]="ClosetClothV1";
+        memory[ch+8]=sizeof(marker);memory[ch+12]=0xC2A000;
+        for(unsigned i=0;i<sizeof(marker);++i)memory[0xC2A000+i]=marker[i];
+        memory[ch+0x34]=129;memory[ch+0x1c]=2;memory[ch+0x20]=cs;
+        memory[ch+0x24]=6;memory[ch+0x28]=0xC2B000;memory[0xC2B000]=0;memory[0xC2B000+10]=1;
+        memory[cs]=0;memory[cs+68]=5;memory[cs+72]=1000;memory[cs+76]=1666;
+        memory[cs+4]=0;memory[cs+8]=1;memory[cs+16]=0;memory[cs+84]=0;
+        memory[cs+32]=120;memory[cs+100]=120;
+        memory[model+0x90]=0xC2C000;memory[0xC2C000+0xF8]=0;memory[0xC2C000+0xA4]=0;
+        memory[player.unit+0x9E8]=1;
+        BagMatrix output,rest;
+        assert(positionBackpack(child,rest));
+        bag.motion.ready=true;bag.motion.verticalOffset=.1f;bag.motion.airborneWeight=1;
+        assert(positionBackpack(child,output,true));
+        assert(sequenceCalls.back().animation==0&&sequenceCalls.back().blend==0);
+        assert(bag.motion.ready&&bag.motion.verticalOffset==0&&bag.motion.airborneWeight==0);
+        assert(!bag.response.tracking); // Old baked deformation stays disabled; original motion remains.
+        ClothAnimationResource resource;
+        for(unsigned id:{12u,13u,14u,16u})assert(clothAnimationResource(model,id,resource));
+        for(unsigned animation:{5u,37u,38u,39u,40u,187u}){
+            memory[ps+68]=animation;bagTestTime+=16;assert(positionBackpack(child,output,true));
+            assert(sequenceCalls.back().animation==0&&bag.motion.ready);
+        }
+        // Install the lightweight V3 rig: rest pivots define the field, even
+        // though culling bounds are expanded beyond the rest bag.
+        static constexpr char rigMarker[]="ClosetBagV3";
+        memory[ch+8]=sizeof(rigMarker);memory[ch+0x34]=61;memory[ch+0x38]=0xC30000;
+        for(unsigned i=0;i<sizeof(rigMarker);++i)memory[0xC2A000+i]=rigMarker[i];
+        positions[0xC30000+108+96]={{-.5f,-.5f,-.6195f}};
+        positions[0xC30000+108*60+96]={{.5f,.5f,.6195f}};
+        positions[ch+0xB4]={{-2,-2,-2}};positions[ch+0xC0]={{2,2,2}};
+        memory[model+0x94]=0xC40000;matrices[model+0xFC]=rest;
+        for(unsigned i=0;i<61;++i)matrices[0xC40000+64*i]=rest;
+        const auto clipCalls=sequenceCalls.size();
+        assert(positionBackpack(child,output,true));assert(bag.response.tracking&&!bag.response.ready);
+        for(unsigned frame=0;frame<150;++frame){
+            bagTestTime+=16;assert(positionBackpack(child,output,true));
+            assert(output==rest&&bag.motion.ready); // A static torso has no synthetic bounce.
+        }
+        assert(sequenceCalls.size()==clipCalls&&bag.response.ready&&bag.response.builds==1&&bag.response.offset[2]<-.03f);
+        assert(std::fabs(bag.response.profile.height-1.239f)<.00001f);
+        assert(applyBagResponseBones(child));
+        assert(matrices[0xC40000]==rest&&matrices[0xC40000+64*5]==rest&&matrices[0xC40000+64*41]==rest);
+        assert(matrices[0xC40000+64][14]<rest[14]-.02f); // Lower/front fabric sags.
+        assert(matrices[0xC27000]==identity&&matrices[0xC27000+64]==identity); // Player bones untouched.
+        const auto drawn=matrices;
+        evaluateAttachmentBones=true;
+        // Real lazy updates overwrite +0x94 just like the recursive route.
+        // Consume the resulting matrices as the CPU/GPU skinners do: a weighted
+        // vertex changes after native evaluation, including a duplicate update.
+        const std::array<float,3> lowerVertex{{-.4f,0,-.5f}};
+        auto skinLower=[&](){
+            std::array<float,3> result{};
+            for(auto influence:std::array<std::pair<unsigned,float>,4>{{{1,.4f},{6,.3f},{11,.2f},{16,.1f}}}){
+                const auto point=transformPoint(matrices.at(0xC40000+64*influence.first),lowerVertex);
+                for(unsigned axis=0;axis<3;++axis)result[axis]+=point[axis]*influence.second;
+            }
+            return result;
+        };
+        for(auto caller:{0x718761u,0x71415Du,0x714183u}){
+            updateAttachmentForCaller(child,identity.data(),nullptr,nullptr,1,caller);
+            assert(matrices==drawn);
+            const auto rigid=transformPoint(matrices.at(model+0xFC),lowerVertex);
+            assert(skinLower()[2]<rigid[2]-.02f);
+        }
+        // Original mounting-point bounce and local cloth motion both respond to
+        // an animated torso. Basis lengths remain constant: no whole-bag stretch.
+        float minFabric=1,maxFabric=-1,maxBounce=0;
+        for(unsigned frame=0;frame<160;++frame){
+            auto animated=identity;animated[14]=.05f*std::sin(frame*.29f);
+            matrices[0xC27000]=matrices[0xC27000+64]=animated;bagTestTime+=16;
+            updateAttachmentForCaller(child,identity.data(),nullptr,nullptr,1,frame%2?0x71415D:0x718761);
+            BagMatrix raw;assert(positionBackpack(child,raw));
+            const auto& pose=matrices.at(model+0xFC);
+            maxBounce=std::fmax(maxBounce,std::fabs(pose[14]-raw[14]));
+            for(unsigned column:{0u,4u,8u}){
+                float actual=0,expected=0;for(unsigned axis=0;axis<3;++axis){actual+=pose[column+axis]*pose[column+axis];expected+=rest[column+axis]*rest[column+axis];}
+                assert(std::fabs(actual-expected)<.00001f);
+            }
+            const auto rigid=transformPoint(pose,lowerVertex);
+            const float fabric=skinLower()[2]-rigid[2];
+            minFabric=std::fmin(minFabric,fabric);maxFabric=std::fmax(maxFabric,fabric);
+        }
+        assert(maxBounce>.003f&&maxFabric-minFabric>.003f);
+        // Restore the established outward/upward airborne lift while the lower
+        // controls still deform relative to that rigid pose; no clip switching.
+        matrices[0xC27000]=matrices[0xC27000+64]=identity;
+        memory[player.unit+0x9E8]=0x2000;scalars[player.unit+0xA48]=-8;
+        for(unsigned frame=0;frame<100;++frame){
+            memory[player.unit+0xA20]=(frame+1)*16;bagTestTime+=16;
+            updateAttachmentForCaller(child,identity.data(),nullptr,nullptr,1,0x714183);
+        }
+        const auto restBottom=transformPoint(rest,{{0,0,-.6195f}});
+        const auto liftedBottom=transformPoint(matrices.at(model+0xFC),{{0,0,-.6195f}});
+        assert(bag.motion.airborneWeight>.99f&&liftedBottom[0]<restBottom[0]-.08f&&liftedBottom[2]>restBottom[2]+.001f);
+        assert(matrices.at(0xC40000+64)!=matrices.at(0xC40000)&&sequenceCalls.size()==clipCalls);
+        memory[player.unit+0x9E8]=1;
+        for(unsigned frame=0;frame<100;++frame){bagTestTime+=16;updateAttachmentForCaller(child,identity.data(),nullptr,nullptr,1,0x714183);}
+        assert(bag.motion.airborneWeight<.00001f);
+        evaluateAttachmentBones=false;matrices[model+0xFC]=rest;
+        // Parenting on another body or hip does not select a special bake.
+        bag.mount=1;memory[model+0x1D0]=32;
+        assert(positionBackpack(child,output,true));assert(!bag.response.ready&&bag.motion.ready);
+        for(unsigned frame=0;frame<70;++frame){bagTestTime+=16;assert(positionBackpack(child,output,true));}
+        assert(bag.response.ready&&bag.response.builds==2&&bag.response.offset[2]<-.025f);
+        auto& parentName=resourceNames[parentData+0x20];const auto femaleName=parentName;parentName[0]='X';
+        assert(positionBackpack(child,output,true));assert(bag.response.ready);parentName=femaleName;
+        // Turning off the option restores every control to rest, including a
+        // duplicate native update that did not recalculate its bones this frame.
+        bag.fits[1].enabled=true;bag.fits[1].values.motion=false;
+        assert(positionBackpack(child,output,true));assert(!bag.response.tracking&&!bag.motion.ready);
+        assert(applyBagResponseBones(child));for(unsigned i=0;i<61;++i)assert(matrices[0xC40000+64*i]==rest);
+        bag.fits[1]={};bag.mount=0;memory[model+0x1D0]=28;
+        memory[player.unit+0x9E8]=0x2000;scalars[player.unit+0xA48]=-8;
+        memory[player.unit+0xA20]=0;assert(bagResponseFlight(c)==-1);
+        memory[player.unit+0xA20]=416;assert(bagResponseFlight(c)>0&&bagResponseFlight(c)<.02f);
+        memory[player.unit+0xA20]=2000;assert(bagResponseFlight(c)==1);
+        memory[player.unit+0x9E8]=0x4000;assert(bagResponseFlight(c)==1);
+        c.token=77;assert(bagResponseFlight(c)==0);c.token=0;
+        memory[player.unit+0x9E8]=0;assert(bagResponseFlight(c)==0);
+        // World mount samples include root travel but exclude camera movement.
+        for(unsigned frame=0;frame<50;++frame){
+            const float time=frame*.016f;auto camera=identity;camera[12]=frame*.4f;camera[13]=-frame*.2f;
+            auto actor=identity;actor[14]=.08f*std::sin(time*12);
+            matrices[c.parent+0xFC]=bagMatrixProduct(camera,actor);
+            matrices[0xC27000]=matrices[0xC27000+64]=matrices[c.parent+0xFC];matrices[0xC28000+0x9C]=camera;
+            bagTestTime+=16;assert(positionBackpack(child,output,true));
+            assert(std::fabs(bag.response.pin[0]-(rest[12]+rest[8]*.6195f))<.00001);
+        }
+        assert(std::fabs(bag.response.driver[2])>.03f); // Root vertical travel excites this mounting point.
+        // Duplicate bags retain independent caches and local fields.
+        auto& second=c.bags[1];second=bag;second.child=pointer(model+0x100);second.response={};
+        memory[model+0x100+0x30]=childData;memory[model+0x100+0x10]=1;
+        memory[model+0x100+0x1CC]=c.parent;memory[model+0x100+0x1D0]=28;matrices[model+0x100+0xBC]=identity;
+        assert(positionBackpack(second.child,output,true));assert(second.response.tracking&&!second.response.ready);
+        const auto safeMatrices=matrices;
+        memory[model+0x94]=memory[c.parent+0x94];assert(!applyBagResponseBones(child)&&matrices==safeMatrices);
+        memory[model+0x94]=0xC40000;memory[ch+0x34]=62;
+        assert(!applyBagResponseBones(child)&&matrices==safeMatrices);memory[ch+0x34]=61;
+        // NPCs retain their native state and never inherit player adjustments.
+        c.guid=player.guid+1;
+        const auto npcMemory=memory;const auto npcMatrices=matrices;const auto npcOutput=output;const auto npcCalls=sequenceCalls.size();
+        assert(!positionBackpack(child,output,true));
+        assert(memory==npcMemory&&matrices==npcMatrices&&output==npcOutput&&sequenceCalls.size()==npcCalls);
+        updateAttachmentForCaller(child,identity.data(),nullptr,nullptr,.73f,0x71415D);
+        assert(attachmentUpdate.matrix==identity.data()&&attachmentUpdate.alpha==.73f);
+        assert(memory==npcMemory&&matrices==npcMatrices&&sequenceCalls.size()==npcCalls);
+        weaponContexts=oldContexts;
+        std::cout<<"PASS: local control response on back/hips, world mounting motion, old-clip suppression and player isolation\n";
     }
     std::cout<<"PASS: native hook simulation, cross-family ranged drawing/sheathing, real metadata isolation, staff body contact and placement tuning\n";
 }
