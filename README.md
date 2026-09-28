@@ -176,3 +176,4 @@ Permissions already granted under prior licenses remain unaffected.
 
 
 <img src="Screenshots/linux_nvidia_meme.png" alt="Linux Nvidia Meme" width="240">
+<img src="Screenshots/logofx.png" alt="Linux Nvidia Meme" width="300">
