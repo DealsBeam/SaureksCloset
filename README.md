@@ -6,6 +6,8 @@
 
 Supported on Linux, Windows, and Mac
 
+NEVER DOWNLOAD SAUREK'S CLOSET FROM ANYWHERE BUT THIS GITHUB PAGE
+
 <a href="https://discord.gg/6mfxCdNbM6"><img src="https://invidget.switchblade.xyz/6mfxCdNbM6" alt="Join Saurek's Addons on Discord — online and total member counts" width="430" height="110"></a>
 
 [Join the Discord community](https://discord.gg/6mfxCdNbM6)
