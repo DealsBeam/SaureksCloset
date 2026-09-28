@@ -80,9 +80,11 @@ static void smallerBagsMoveLess(){
             assert(current.travel>.0001f&&current.fabricTravel>.0001f);
             if(size){
                 const auto& smaller=stats[size-1][slot];
-                assert(current.travel>smaller.travel*1.04f);
-                assert(current.speed>smaller.speed*1.04f);
-                assert(current.acceleration>smaller.acceleration);
+                // Less absolute travel, not a second reduction in the
+                // fraction of bag height that is allowed to move.
+                assert(current.travel*sizes[size]>smaller.travel*sizes[size-1]*1.04f);
+                assert(current.speed*sizes[size]>smaller.speed*sizes[size-1]*1.04f);
+                assert(current.acceleration*sizes[size]>smaller.acceleration*sizes[size-1]);
                 // Angular correction relative to the current body includes
                 // phase difference, so it is not a measure of sway amplitude.
                 // Preserve full timing on small bags; test their reduced

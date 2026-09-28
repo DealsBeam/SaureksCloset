@@ -2088,6 +2088,24 @@ int main(){
         assert(matrices[0xC40000]==rest&&matrices[0xC40000+64*5]==rest&&matrices[0xC40000+64*41]==rest);
         assert(matrices[0xC40000+64][14]<rest[14]-.02f); // Lower/front fabric sags.
         assert(matrices[0xC27000]==identity&&matrices[0xC27000+64]==identity); // Player bones untouched.
+        {
+            const auto savedBag=bag;
+            for(const auto& asset:bagCatalog){
+                bag=savedBag;bag.model=asset.id;modelName(child,asset.model);
+                memory[memory[model+0x30]+0x130]=ch;
+                const bool soft=asset.id>=12&&asset.id<=16;
+                // Consumer rejects stale cloth deformation immediately, even
+                // before placement has had a chance to clear the old state.
+                assert(applyBagResponseBones(child));
+                if(!soft)for(unsigned bone=0;bone<61;++bone)assert(matrices[0xC40000+64*bone]==rest);
+                else assert(matrices[0xC40000+64]!=rest);
+                assert(positionBackpack(child,output,true));
+                assert(bag.response.ready==soft);
+                assert(applyBagResponseBones(child));
+                if(!soft)for(unsigned bone=0;bone<61;++bone)assert(matrices[0xC40000+64*bone]==rest);
+            }
+            bag=savedBag;memory[model+0x30]=childData;assert(applyBagResponseBones(child));
+        }
         const auto drawn=matrices;
         evaluateAttachmentBones=true;
         // Real lazy updates overwrite +0x94 just like the recursive route.

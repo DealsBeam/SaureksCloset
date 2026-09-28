@@ -1,4 +1,4 @@
-# Independent weapon placements — 4.0.2 / renderer 40002
+# Independent weapon placements — 4.0.4 / renderer 40004
 
 ## Implemented renderer
 

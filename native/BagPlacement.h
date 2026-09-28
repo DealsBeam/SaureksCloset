@@ -5,6 +5,7 @@
 #include "BagMotion.h"
 #include "BagCoordinates.h"
 #include "BagAirLift.h"
+#include "BagMountFlop.h"
 #include "BagTuning.h"
 #include "BagResponse.h"
 // Dark Schoolbag is authored upright (+Z), outward (-X), with the origin at
@@ -16,7 +17,7 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
                          const BagMatrix* modelToRender=nullptr,const BagMatrix* worldToRender=nullptr,float airLiftTarget=0,
                          const BagTuningEntry* instanceFits=nullptr,unsigned baseMount=0,unsigned identity=0,
                          BagResponse* response=nullptr,const BagResponseProfile* responseProfile=nullptr,float flight=0,bool activeMotion=true,
-                         const BagMatrix* fittedOverride=nullptr){
+                         const BagMatrix* fittedOverride=nullptr,bool softBody=true){
     BagMatrix back=renderedBack,torso=renderedTorso,renderToModel{};
     if(modelToRender){
         if(!bagAffineInverse(*modelToRender,renderToModel))return false;
@@ -94,7 +95,7 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
         // Revision changes reset once for the matching bag/race/sex. Repeated
         // identical Lua setters leave the motion history untouched.
         if(response&&responseProfile){
-            if(tuning.motion&&directionReady){
+            if(softBody&&tuning.motion&&directionReady){
                 const std::uint64_t fitKey=(std::uint64_t(identity)<<48)|(std::uint64_t(baseMount)<<40)|
                     (std::uint64_t(fitIndex)<<32)|override.revision;
                 BagMatrix sample=target,renderToWorld;
@@ -123,6 +124,9 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
             const float pivot=(fittedOverride||baseMount)?contactTop:mount.raisedOrigin;
             smoothBagMotion(*motion,target,size,now,model,
                 (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,pivot,worldUp,&verticalMeasure,airLiftTarget,instanceFits?identity:0,activeMotion,fittedOverride!=nullptr);
+            const float bobGain=1.f+.75f*motion->runWeight;
+            if(fittedOverride)flopBagAtContact(target,fitted,worldUp,contactTop,
+                (responseProfile?responseProfile->height:bagMotionHeight)*size,motion->verticalBob*bobGain,size,*motion,now);
             if(motion->airborneWeight>.000001f){
                 BagMatrix worldToModel{{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}},modelToWorld;
                 if(modelToRender&&worldToRender)worldToModel=bagMatrixProduct(renderToModel,*worldToRender);
@@ -130,6 +134,16 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
                 if(bagAffineInverse(worldToModel,modelToWorld))
                     liftBagInGravity(target,fitted,modelToWorld,worldToModel,
                         {{-fitted[0],-fitted[1],-fitted[2]}},motion->airborneWeight,fittedOverride?&contact:nullptr);
+            }
+            // Make the running bob visible without speeding up its cycle or
+            // moving the body pin. Ease amplitude in/out with locomotion.
+            if(softBody){
+                if(fittedOverride&&response)bagResponseBob(*response,target,worldUp,motion->verticalBob*bobGain);
+            }else{
+                // Rigid bags translate as one object. No control bone may
+                // stretch the top, body, straps or flap to hold a fixed pin.
+                const float bob=motion->verticalBob*(fittedOverride?bobGain:bobGain-1.f);
+                for(unsigned axis=0;axis<3;++axis)target[12+axis]+=worldUp[axis]*bob;
             }
         }
         else if(motion->ready)*motion={};

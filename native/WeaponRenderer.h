@@ -4,6 +4,7 @@
 #include "BagPlacement.h"
 #include "BagBodyBinding.h"
 #include "BagCatalog.h"
+#include "BagBehavior.h"
 #include "PlacementTuning.h"
 #include "StaffPlacement.h"
 #include "StaffFits.h"
@@ -369,7 +370,7 @@ static bool positionBackpack(void* child,std::array<float,16>& adjusted,bool smo
         smooth?&motion:nullptr,now,header,context&&bagIsRunning(*context),&modelToRender,
         smooth?&worldToRender:nullptr,context?bagAirLiftTarget(*context):0,instance?instance->fits.data():nullptr,mount,identity,
         instance&&smooth&&responseReady?&instance->response:nullptr,responseReady?&responseProfile:nullptr,context?bagResponseFlight(*context):0,
-        context&&bagMotionActive(*context),bodyBound?&bodyFit:nullptr);
+        context&&bagMotionActive(*context),bodyBound?&bodyFit:nullptr,instance?bagSoftBody(instance->model):true);
     if(valid&&clothReady){
         // Compatibility with an older cloth asset still installed on disk:
         // clear its blend and hold the undeformed Stand pose. Native character
@@ -399,7 +400,7 @@ static bool applyBagResponseBones(void* child){
     // model/view transform, never last frame's deformed matrices. Root and
     // attachment fields remain unchanged; CPU/GPU skinning consumes this
     // per-instance matrix palette after the update returns.
-    return writeBagResponseMatrices(bones,bagResponseMatrices(instance->response,modelToRender));
+    return writeBagResponseMatrices(bones,bagResponseMatrices(instance->response,modelToRender,bagSoftBody(instance->model)));
 }
 static bool positionStoredBow(void* child,const float* attachment,std::array<float,16>& adjusted){
     std::uintptr_t parent=0;unsigned point=0;

@@ -45,6 +45,7 @@ struct BagResponse {
     std::array<float,3> driver{},offset{},velocity{};
     std::array<std::array<float,3>,60> weights{};
     std::array<float,3> localOffset{};
+    std::array<float,3> bobLocal{};
     BagJiggleHistory<4> jiggle;
 };
 static float bagResponseLength(const std::array<float,3>& value){
@@ -90,19 +91,35 @@ static void bagResponseLocal(BagResponse& state,const BagMatrix& pose){
         state.localOffset[axis]=std::fmax(-limit,std::fmin(limit,state.localOffset[axis]));
     }
 }
-static std::array<BagMatrix,61> bagResponseMatrices(const BagResponse& state,const BagMatrix& modelToRender){
+static void bagResponseBob(BagResponse& state,const BagMatrix& pose,const std::array<float,3>& up,float amount){
+    state.bobLocal={};BagMatrix inverse;
+    if(!state.ready||!std::isfinite(amount)||!bagAffineInverse(pose,inverse))return;
+    for(unsigned axis=0;axis<3;++axis)
+        state.bobLocal[axis]=amount*(inverse[axis]*up[0]+inverse[4+axis]*up[1]+inverse[8+axis]*up[2]);
+}
+static std::array<BagMatrix,61> bagResponseMatrices(const BagResponse& state,const BagMatrix& modelToRender,bool softBody=true){
     std::array<BagMatrix,61> output;output.fill(modelToRender);
-    if(!state.ready)return output;
+    if(!softBody||!state.ready)return output;
     for(unsigned control=0;control<60;++control){
         auto& matrix=output[control+1];
-        for(unsigned axis=0;axis<3;++axis)for(unsigned k=0;k<3;++k)
-            matrix[12+axis]+=modelToRender[k*4+axis]*state.localOffset[k]*state.weights[control][k];
+        // Restore the original vertical spring without moving its body pin.
+        // The lower three quarters travel together; only the upper attachment
+        // band takes up the give. This does not scale the whole bag. Flap and
+        // body share the field, including the rear, so they bob together.
+        const float bobWeight=control%5==4?0.f:1.f;
+        for(unsigned k=0;k<3;++k){
+            const float limit=.20f*state.profile.height;
+            const float shift=std::fmax(-limit,std::fmin(limit,
+                state.localOffset[k]*state.weights[control][k]+state.bobLocal[k]*bobWeight));
+            for(unsigned axis=0;axis<3;++axis)matrix[12+axis]+=modelToRender[k*4+axis]*shift;
+        }
     }
     return output;
 }
 static void updateBagResponse(BagResponse& state,const BagMatrix& pose,float scale,std::uint32_t now,
                              std::uintptr_t model,std::uint64_t fit,const BagResponseProfile& profile,
                              const std::array<float,3>& worldUp,float flight=0,unsigned identity=0,bool activeMotion=true){
+    state.bobLocal={};
     const float height=profile.height*scale;
     std::array<double,3> pin{{double(pose[12])+double(pose[8])*profile.top,
         double(pose[13])+double(pose[9])*profile.top,double(pose[14])+double(pose[10])*profile.top}};

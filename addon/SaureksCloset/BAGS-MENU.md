@@ -16,9 +16,11 @@ Changing the starting position resets only that bag's fit to the new mount.
 Fits are separate for each race and gender. Unsaved tuner edits are temporary;
 switching looks warns before discarding them. Removing a bag discards its edits.
 
-Motion uses a small local deformation rig. The upper rim and rear panel stay
-attached while the lower fabric responds to the chosen mounting point. Cloth
-gives more than canvas or leather. Moving a bag pauses its response until you
+The list and model picker label each style **Soft body** or **Rigid body**.
+Only the Mageweave Bag and its colors are soft and may stretch. All other bags,
+including the Runecloth backpack, move as rigid objects: they bob and rock
+without stretching their bodies, straps or flaps.
+Moving a bag pauses its response until you
 release it; the new fit then prepares automatically. The original bounce and
 upward/outward jump lift accompany this local deformation. Each bag has its own
 stable timing, so multiple bags sway, bounce and lift at different points in the
@@ -28,9 +30,19 @@ swings with that foot, while one at the hip follows the hip. Sway and jump lift
 pivot around that contact. Faster limb swings produce stronger back-and-forth
 rocking, with smaller bags remaining gentler. Placement values keep their
 existing meaning; support is selected automatically after you finish moving it.
-Smaller bags have gentler bobbing, sway and fabric movement. Size changes the
+Smaller bags have less absolute bobbing travel, with the same bounce relative
+to their height. Size is applied once to vertical motion; smaller bags are not
+damped a second time. Size changes the
 amount of motion without reducing each bag’s timing offset. The mounting point
 follows immediately while the lower bag can swing and deform.
+Running uses 1.75 times the original up/down bob, easing in as you run. Rigid bags
+move up and down as one object; only soft Mageweave bags take up the movement
+through stretch near their upper attachment.
+An outward/upward flap follows movement at the actual attachment and the bag's
+fitted direction, including while walking. Smaller bags get a bounded angular
+boost so their short lower edge still moves visibly. The flap eases back toward
+rest instead of swinging inward through the body; it does not stretch rigid
+bags or speed up their motion. Back and hip presets do not select this behavior.
 When you stop moving, extra sway and fabric motion settle away; idle breathing
 does not keep the bags wobbling. Moving and jumping keep their normal response.
 Offline jump/fall
@@ -54,5 +66,5 @@ Toggle Addon hides bags while retaining the arrangement; Reset All removes them.
 Bags are cosmetic attachments and do not change inventory slots, equipment
 icons, tooltips, capacity or stats.
 
-Version 4.0.2 uses renderer 40002 (DLL 4.0.2). Install the matching addon and DLL,
+Version 4.0.4 uses renderer 40004 (DLL 4.0.4). Install the matching addon and DLL,
 then fully restart the game. The /reload command cannot replace a loaded DLL.

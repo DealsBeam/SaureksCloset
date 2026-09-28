@@ -234,6 +234,8 @@ for _,row in ipairs(picker.rows) do
     seen[row.choice.name]=true
     check(row:IsVisible() and row.icon.width==40 and row.icon.height==40,"Every model has a visible forty-pixel icon")
     check(row.icon.texture[1]==row.choice.icon,"Picker uses each model family custom icon")
+    check(row.bodyType.text==(row.choice.name=="Mageweave Bag" and "Soft body" or "Rigid body"),"Picker identifies soft versus rigid bags")
+    check(not overlaps(row.caption,row.bodyType),"Body type stays below the model name")
 end
 for _,model in ipairs(V.bagModelChoices) do check(seen[model.name],"Model family is reachable: "..model.name) end
 for _,name in ipairs({"Burgundy Rucksack","Milloo Dark Leather","Milloo Scratch","Milloo Tan Leather","Olive Cloth Pouch"}) do
@@ -309,6 +311,9 @@ for i,row in ipairs(V.bagRows) do
     check(rx+rw==x+w-4 and ry+rh/2==y+h/2,"Remove remains inset and centered inside the narrower row")
     local tx,ty,tw,th=rect(row.title)
     local sx,sy,sw,sh=rect(row.subtitle)
+    local bx,by,bw,bh=rect(row.bodyType)
+    check(row.bodyType.text==V:BagBodyType(bag.model),"Equipped bag shows its actual body type")
+    check(by>=sy+sh and by+bh<=y+h-4 and bx+bw<rx,"Body type fits on its own line inside the card")
     check(tx+tw<rx and sx+sw<rx,"Both text lines stay clear of Remove")
     check(not overlaps(row.choose,row.remove),"Edit and remove targets are separate")
     check(row.iconButton.width==40 and row.iconButton.height==40,"Custom bag artwork has a readable forty-pixel icon")

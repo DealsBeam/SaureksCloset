@@ -20,6 +20,9 @@ struct BagMotion {
     std::array<float,3> angularOffset{},angularVelocity{},bodyVelocity{};
     std::array<float,3> verticalAnchor{};
     float verticalOffset=0,verticalVelocity=0,bodyVerticalVelocity=0;
+    float flopAngle=0;
+    std::uint32_t flopTime=0;
+    float verticalBob=0; // Emitted, phase-adjusted give for a pinned bag's rig.
     float airborneWeight=0,airborneVelocity=0;
     float phaseWeight=0;
     BagJiggleHistory<5> jiggle;
@@ -74,7 +77,12 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
     std::array<float,3> anchor=position;
     for(unsigned i=0;i<3;++i)anchor[i]+=pivotHeight*pose[8+i];
     const float strength=bagJiggleSizeGain(scale);
-    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction*strength;
+    // Height already scales the bob's travel and input limits. Applying the
+    // angular size gain again makes small-bag bounce shrink quadratically.
+    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction;
+    // Measure mount impulses at a common reference size, then scale their
+    // force once. Scaling both the input clamp and force also squares size.
+    const float driverHeight=bagMotionHeight*std::fmax(scale,.45f*.85f);
     float distance=0;for(unsigned i=0;i<3;++i){const float d=position[i]-state.position[i];distance+=d*d;}
     const std::uint32_t elapsed=now-state.time; // Also handles timer wraparound.
     if(!state.ready||state.model!=model||state.fit!=fit||elapsed>250||distance>.75f*.75f){
@@ -110,7 +118,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         bagLimitVector(velocity,5.f); // Animation cuts cannot inject huge impulses.
         float verticalDriver=0;
         for(unsigned i=0;i<3;++i)verticalDriver+=(anchor[i]-state.verticalAnchor[i])*measure[i]/seconds;
-        verticalDriver=std::fmax(-4*height,std::fmin(4*height,verticalDriver));
+        verticalDriver=std::fmax(-4*driverHeight,std::fmin(4*driverHeight,verticalDriver));
         if(!activeMotion){
             // Idle breathing/stance shifts must not kick the bag again. Start
             // a monotonic return from the current offset when locomotion ends.
@@ -147,7 +155,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
             // Only changing vertical animation velocity excites the spring.
             // There is no sideways/inset lag, and no independent bounce cycle.
             const float nextVertical=state.bodyVerticalVelocity+driverBlend*(verticalDriver-state.bodyVerticalVelocity);
-            const float verticalAcceleration=std::fmax(-30*height,std::fmin(30*height,(nextVertical-state.bodyVerticalVelocity)/dt));
+            const float verticalAcceleration=std::fmax(-30*driverHeight,std::fmin(30*driverHeight,(nextVertical-state.bodyVerticalVelocity)/dt));
             state.bodyVerticalVelocity=nextVertical;
             const float verticalStretch=std::fmax(0.f,(std::fabs(state.verticalOffset)-verticalLimit*.5f)/(verticalLimit*.5f));
             const float verticalStiffness=16.f*16.f*(1+10*verticalStretch*verticalStretch);
@@ -197,6 +205,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         if(pivotHeight!=0)for(unsigned row=0;row<3;++row)
             pose[12+row]+=pivotHeight*(original[8+row]-pose[8+row]);
     }
+    state.verticalBob=state.verticalOffset;
     if(!pinContact)for(unsigned axis=0;axis<3;++axis)pose[12+axis]+=worldUp[axis]*state.verticalOffset;
     if(bagJiggleDelay(identity)){
         // Phase the emitted local sway, including inherited torso animation.
@@ -246,6 +255,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
                    2*(x*z+y*w)*scale,2*(y*z-x*w)*scale,(1-2*(x*x+y*y))*scale,0,
                    current[12],current[13],current[14],1}};
             const float vertical=state.verticalOffset+state.phaseWeight*(delayed[4]-state.verticalOffset);
+            state.verticalBob=vertical;
             for(unsigned i=0;i<3;++i)
                 pose[12+i]+=pivotHeight*(current[8+i]-pose[8+i])+(pinContact?0:worldUp[i]*(vertical-state.verticalOffset));
         }

@@ -5,6 +5,9 @@ V.MAX_BAGS=5
 -- The visible bag limit is independent of those stable attachment IDs.
 V.BAG_INSTANCE_SLOTS=8
 V.bagMounts={back=0,leftHip=1,rightHip=2}
+function V:BagBodyType(model)
+    return type(model)=="number" and model>=12 and model<=16 and "Soft body" or "Rigid body"
+end
 local fitFields={"left","inset","up","pitch","roll","yaw","scale"}
 local function integer(n,low,high)
     return type(n)=="number" and n>=low and n<=high and n==math.floor(n)

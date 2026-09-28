@@ -74,7 +74,7 @@ static void liveHipContact(){
             const auto fittedContact=point(fittedWorld,upper),movingContact=point(movingWorld,upper);
             near(movingContact[0],fittedContact[0]);near(movingContact[1],fittedContact[1]);
             const float size=bagModelScale*percent/100;
-            const float verticalLimit=bagMotionHeight*size*.04f*bagJiggleSizeGain(size)*(transformed?1.31f:1.f);
+            const float verticalLimit=bagMotionHeight*size*.04f*(transformed?1.31f:1.f);
             assert(std::fabs(movingContact[2]-fittedContact[2])<=verticalLimit+.00005f);
             const auto fittedLower=point(fittedWorld,lower),movingLower=point(movingWorld,lower);
             lowerTravel=std::fmax(lowerTravel,std::hypot(movingLower[0]-fittedLower[0],movingLower[1]-fittedLower[1]));

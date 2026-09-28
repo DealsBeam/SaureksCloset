@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.2
+# Building Saurek's Closet 4.0.4
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -127,3 +127,12 @@ both the 3.9.1 compatibility-list omission and the old pressed-state offset.
 ### Release 4.0.2
 
 Addon 4.0.2 and renderer 40002 include body-mounted bag contacts, independent sway, size-sensitive rocking, quiet idle settling and placement down to the feet. The full release gate covers attachment contacts, jump lift, frame rates and saved-fit limits. GitHub CI uses the pinned image encoder; README text is independent of release-version checks.
+
+### Release 4.0.4
+
+Addon 4.0.4 and renderer 40004 restore visible walking flap on small bags,
+with bounded size compensation and smooth outward lift at the actual fitted
+mount. Running bob uses 1.75x gain with size applied once. Only Mageweave bags
+stretch; every other model remains rigid, and the bag menu labels both types.
+The release gate includes emitted walking motion, frame-rate stability,
+independent phases, rigid geometry, jump response and idle settling.

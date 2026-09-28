@@ -1,5 +1,13 @@
 # Placement-driven bag deformation prototype
 
+Current behavior policy: only Mageweave pouch IDs 12–16 (including the retired
+Olive variant) may use the deformation field below. Every other catalog model
+is rigid, including Runecloth ID 1 despite its historical `cloth` material tag.
+Rigid bags bypass spring deformation and receive an identical final matrix in
+every skinning control, even if stale soft state survives a model switch. Their
+1.75x running bob is whole-object vertical travel; rotations and jump lift remain
+rigid. The menu and picker show matching Soft body / Rigid body labels.
+
 All catalog bags use a shared 3 × 4 × 5 volume lattice (60 control bones plus a root). Four tetrahedral skin weights bind each vertex. The upper rim and rear panel stay fixed; lower/front fabric has a nonlinear, spatially varying response. The flap and body sample the same field, rather than playing independent clips. This is a reduced deformation model, not simulated loose contents or full cloth contact.
 
 The native renderer caches spring coefficients and control weights after a fit stops changing. Each instance measures its fitted mounting point; material changes, placement changes and body recreation invalidate its cache. Cloth gives more than canvas or leather. Dragging pauses the selected bag until release. Motion has continuous state and bounded acceleration; it does not dispatch Run, Jump or Fall clips, and runs alongside the restored original rigid bounce and upward/outward jump lift.
@@ -14,8 +22,33 @@ Bound bags rotate around the same contact for phased sway and upward/outward jum
 
 Native locomotion flags gate dynamic impulses. On stopping, stored spring velocities are cleared once and offsets return with damping; delayed angular sway fades out quickly, and idle breathing cannot add new spring or cloth impulses. Static cloth sag and the original landing-lift response remain. Walking, swimming and airborne movement stay active independently of the run-intensity flag.
 
+Bound bags emit the original phase-adjusted vertical spring through the local rig. Previously `pinContact` discarded that output, removing the visible run bob. All controls below the upper attachment row now receive the same gravity-relative displacement; skin interpolation confines the give to the upper quarter while the lower body translates together. The top remains pinned. This preserves the old size-scaled amplitude and timing without a whole-bag scale, independent flap motion or idle oscillator. Combined control displacement remains within the existing culling margin. The running-bob regression compares emitted palettes against the original unpinned spring, including rear controls, multiple sizes, phases, frame rates and idle settling.
+
 Weapon children expose transforms and rest bounds, which could support conservative collision proxies in a later change. Live cape surface geometry is not exposed by the current bridge. Equipment collision avoidance is not implemented or guaranteed here.
+
+Running now eases the emitted bob amplitude to 1.75 times the original spring output, using the existing run-weight envelope. Walking retains its baseline amplitude. The spring frequency, per-bag phase, size gain, fixed attachment and idle damping are unchanged; combined control displacement still respects the culling margin.
+
+Skin-bound bags also lift outward in response to the positive half of the same
+vertical spring sample, then return to rest rather than swinging through the
+body. The hinge comes from the fitted outward normal crossed with gravity;
+there is no mount-preset condition or independent cycle. Angular response gains
+sqrt(85 / fitted-size-percent), clamped to 1–2, to compensate for small bags'
+short lever arm. A smooth 10-degree bound and a per-instance 45ms filter prevent
+sharp reversals. Duplicate draws do not advance the filter. The top contact is
+preserved before rigid bob translation; the 1.75x running translation is unchanged. It operates on a rigid rotation, so non-Mageweave geometry never
+stretches. Regression checks compare all three presets at the same final pose,
+quiet/moving attachment points, both side orientations, 25–85% sizes, duplicate
+draws, idle settling and multiple frame rates.
 
 Build: `python tools/build_bag_catalog.py`, then `tools/build_native.sh` with the existing toolchain. Run `python tools/check_release.py`. Archived offline bake files do not affect the shipped models.
 
 Native update routing covers recursive child updates (return `0x718761`) and lazy child updates (`0x71415D`/`0x714183`). Each can replace the complete instance bone palette, so local controls are applied after all owned-bag routes. In build 5875, drawing constructs its renderer on the stack at `0x708942`; constructor `0x70B0E0` clears the previous-model cache (`+0x3314`). The GPU palette path reads instance `+0x94` at `0x70CC30`, and the CPU skinning path reads it at `0x719DF2`. These consumers run after updates and are not gated on animation key tracks. Regression tests emulate native palette replacement before skinning weighted vertices through each update route. They verify data flow and motion bounds, not live client appearance.
+
+Vertical size correction: spring input limits use at least the standard 85%
+reference height, spring force scales once by fitted size, and travel is capped
+at 4% of actual bag height before the 1.75x running gain. Previously both input
+limits and force shrank with size and the travel cap also multiplied height by
+size gain, suppressing small bags quadratically. Flop normalization uses the
+same single height scale. Emitted soft-rig and rigid-object tests require
+25/35/56% bags to retain the same relative bounce as 85%, with smaller absolute
+travel and unchanged phase/rate.
