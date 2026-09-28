@@ -1,0 +1,3 @@
+# Match the image encoder used to build the shipped deterministic BLP textures.
+Pillow==12.3.0
+numpy==2.3.5

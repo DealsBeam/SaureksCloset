@@ -91,5 +91,16 @@ int main(){
     assert(bagTuningEntries[2].revision==revision);
     bagTuningUseOwner(1);assert(!bagTuningEntries[2].enabled&&!bagTuningEntries[3].enabled);
     near(placed(2),baseline[2]);
+    // Foot placement extends only bag vertical reach. Weapons, other axes and
+    // the upper vertical limit keep their existing bounds.
+    BagTuningValues foot;foot.up=-2.25f;
+    assert(bagTuningValid(foot,true)&&bagTuningSet(1,1,0,true,foot));
+    assert(!bagTuningValid(foot));
+    for(unsigned weapon=101;weapon<=107;++weapon)assert(!bagTuningSet(weapon,1,0,true,foot));
+    foot.up=-3;assert(bagTuningValid(foot,true));
+    foot.up=-3.001f;assert(!bagTuningValid(foot,true));
+    foot.up=1.001f;assert(!bagTuningValid(foot,true));
+    foot.up=-2.25f;foot.left=-1.001f;assert(!bagTuningValid(foot,true));
+    foot.left=0;foot.inset=-1.001f;assert(!bagTuningValid(foot,true));
     std::cout<<"PASS: bag tuning defaults, all race/sex isolation, position, center-pivot rotation/scale, immediate edits, idempotence, pause/resume and camera invariance\n";
 }

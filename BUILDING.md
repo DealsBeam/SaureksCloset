@@ -114,7 +114,9 @@ when individual features and validations were introduced.
 ### Mandatory release regression gate
 
 `tools/package.py` runs `tools/check_release.py` before creating an installer.
-Use Python with Pillow and Lua 5.1 installed. The same gate runs in GitHub Actions
+Use Python 3.12, install `tools/test-requirements.txt` with pip, and install Lua 5.1.
+The image-library versions are pinned to reproduce the shipped DXT1 textures;
+Ubuntu's older packaged Pillow cannot encode them. The same gate runs in GitHub Actions
 on every push and pull request. Body compatibility is checked using the real
 release requirement; unknown versions and missing native APIs remain rejected.
 Arrow tests exercise normal, hover, held, release, disabled and hide states,

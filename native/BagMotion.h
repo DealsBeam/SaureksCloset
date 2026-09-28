@@ -2,16 +2,18 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include "BagJiggle.h"
 // Restrained secondary motion in character model space. The strap can give a
-// little along world up; its other position axes and base orientation follow
-// immediately. Each rendered bag owns its world/preview history.
+// little along world up; horizontal mounting and world travel follow immediately.
+// Each rendered bag owns its world/preview history.
 using BagQuaternion=std::array<float,4>; // x,y,z,w
 struct BagMotion {
     bool ready=false;
+    bool activeMotion=true;
     std::uint32_t time=0;
     std::uintptr_t model=0;
     unsigned fit=0;
-    float runWeight=0;
+    float runWeight=0,rocking=0;
     // Latest unmodified attachment pose, never a delayed position/orientation.
     std::array<float,3> position{};
     BagQuaternion rotation{{0,0,0,1}};
@@ -19,6 +21,9 @@ struct BagMotion {
     std::array<float,3> verticalAnchor{};
     float verticalOffset=0,verticalVelocity=0,bodyVerticalVelocity=0;
     float airborneWeight=0,airborneVelocity=0;
+    float phaseWeight=0;
+    BagJiggleHistory<5> jiggle;
+    BagJiggleHistory<1> airJiggle;
 };
 static BagQuaternion bagRotation(const std::array<float,16>& m,float scale){
     const float a=m[0]/scale,b=m[5]/scale,c=m[10]/scale;
@@ -55,7 +60,7 @@ static constexpr float bagMotionHeight=1.239f;
 static constexpr float bagMotionVerticalFraction=.04f;
 static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float scale,
                             std::uint32_t now,std::uintptr_t model,unsigned fit,bool running=false,float pivotHeight=0,
-                            std::array<float,3> worldUp={{0,0,1}},const std::array<float,3>* verticalMeasure=nullptr,float airLiftTarget=0){
+                            std::array<float,3> worldUp={{0,0,1}},const std::array<float,3>* verticalMeasure=nullptr,float airLiftTarget=0,unsigned identity=0,bool activeMotion=true,bool pinContact=false){
     const auto wanted=bagRotation(pose,scale);
     const std::array<float,3> position{{pose[12],pose[13],pose[14]}};
     // The caller removes the actor's root/render transform before this step.
@@ -68,12 +73,13 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
     const auto& measure=verticalMeasure?*verticalMeasure:worldUp;
     std::array<float,3> anchor=position;
     for(unsigned i=0;i<3;++i)anchor[i]+=pivotHeight*pose[8+i];
-    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction;
+    const float strength=bagJiggleSizeGain(scale);
+    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction*strength;
     float distance=0;for(unsigned i=0;i<3;++i){const float d=position[i]-state.position[i];distance+=d*d;}
     const std::uint32_t elapsed=now-state.time; // Also handles timer wraparound.
     if(!state.ready||state.model!=model||state.fit!=fit||elapsed>250||distance>.75f*.75f){
         state={};state.ready=true;state.position=position;state.rotation=wanted;state.verticalAnchor=anchor;
-        state.time=now;state.model=model;state.fit=fit;
+        state.time=now;state.model=model;state.fit=fit;state.activeMotion=activeMotion;
         return;
     }
     if(elapsed){
@@ -81,7 +87,8 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         // Separate from small gait rotation: follow downward momentum only,
         // then return with a critically damped strap response after landing.
         // An exact spring step remains stable through slow/irregular frames.
-        const float airTarget=std::isfinite(airLiftTarget)?std::fmax(0.f,std::fmin(1.f,airLiftTarget)):0;
+        const float requestedAir=std::isfinite(airLiftTarget)?std::fmax(0.f,std::fmin(1.f,airLiftTarget)):0;
+        const float airTarget=delayedBagJiggle(state.airJiggle,std::array<float,1>{{requestedAir}},now,identity)[0];
         const float airRate=airTarget>0?14.f:17.f;
         const float airError=state.airborneWeight-airTarget;
         const float airStep=(state.airborneVelocity+airRate*airError)*seconds;
@@ -104,13 +111,31 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         float verticalDriver=0;
         for(unsigned i=0;i<3;++i)verticalDriver+=(anchor[i]-state.verticalAnchor[i])*measure[i]/seconds;
         verticalDriver=std::fmax(-4*height,std::fmin(4*height,verticalDriver));
+        if(!activeMotion){
+            // Idle breathing/stance shifts must not kick the bag again. Start
+            // a monotonic return from the current offset when locomotion ends.
+            velocity={};verticalDriver=0;state.bodyVelocity={};state.bodyVerticalVelocity=0;
+            if(state.activeMotion){state.angularVelocity={};state.verticalVelocity=0;}
+        }
+        state.activeMotion=activeMotion;
+        // A swinging limb can move much faster than the torso. Its measured
+        // speed opens a softer rocking response; no autonomous wiggle cycle.
+        const float rockingTarget=pinContact&&activeMotion?
+            std::fmax(0.f,std::fmin(1.f,(bagVectorLength(velocity)-2.5f)/2.5f)):0;
+        state.rocking+=(1-std::exp(-seconds/.08f))*(rockingTarget-state.rocking);
+        const float rocking=pinContact&&activeMotion?state.rocking:0;
+        // Returning from a large swing must not snap to the smaller idle cap.
+        const float angularLimit=std::fmax((bagMotionLimit+17.f*.01745329252f*rocking)*strength,
+            activeMotion?0:bagVectorLength(state.angularOffset)+.000001f);
+        const float angularKnee=angularLimit*.5f;
+        const float springRate=22.f-8.f*rocking;
 
         // A short driver filter bounds angular acceleration. Only its change
         // excites the spring; a stationary body has no procedural motion.
         // Small fixed substeps keep the stiff strap stable through slow frames.
         const unsigned steps=static_cast<unsigned>(std::ceil(seconds*480.f));
         const float dt=seconds/steps,driverBlend=1-std::exp(-dt/.035f);
-        const float inertia=.65f+.15f*state.runWeight;
+        const float inertia=(.65f+.15f*state.runWeight)*(1+.5f*rocking)*strength;
         for(unsigned step=0;step<steps;++step){
             std::array<float,3> acceleration{};
             for(unsigned i=0;i<3;++i){
@@ -126,7 +151,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
             state.bodyVerticalVelocity=nextVertical;
             const float verticalStretch=std::fmax(0.f,(std::fabs(state.verticalOffset)-verticalLimit*.5f)/(verticalLimit*.5f));
             const float verticalStiffness=16.f*16.f*(1+10*verticalStretch*verticalStretch);
-            state.verticalVelocity+=dt*(-verticalStiffness*state.verticalOffset-.9f*verticalAcceleration);
+            state.verticalVelocity+=dt*(-verticalStiffness*state.verticalOffset-.9f*strength*verticalAcceleration);
             state.verticalVelocity*=std::exp(-2*std::sqrt(verticalStiffness)*dt);
             state.verticalOffset+=dt*state.verticalVelocity;
             if(std::fabs(state.verticalOffset)>verticalLimit){
@@ -134,21 +159,21 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
                 if(state.verticalVelocity*state.verticalOffset>0)state.verticalVelocity=0;
             }
             const float length=bagVectorLength(state.angularOffset);
-            const float stretch=std::fmax(0.f,(length-bagMotionKnee)/(bagMotionLimit-bagMotionKnee));
-            const float stiffness=22.f*22.f*(1+8*stretch*stretch);
-            const float damping=2*std::sqrt(stiffness);
+            const float stretch=std::fmax(0.f,(length-angularKnee)/(angularLimit-angularKnee));
+            const float stiffness=springRate*springRate*(1+8*stretch*stretch);
+            const float damping=2*(1-.32f*rocking)*std::sqrt(stiffness);
             for(unsigned i=0;i<3;++i){
                 state.angularVelocity[i]+=dt*(-stiffness*state.angularOffset[i]-inertia*acceleration[i]);
                 state.angularVelocity[i]*=std::exp(-damping*dt);
                 state.angularOffset[i]+=dt*state.angularVelocity[i];
             }
             const float angle=bagVectorLength(state.angularOffset);
-            if(angle>bagMotionLimit){
+            if(angle>angularLimit){
                 // Safety stop for a discontinuous animation: keep tangential
                 // velocity, discard outward energy instead of bouncing away.
                 float outward=0;
-                for(unsigned i=0;i<3;++i){state.angularOffset[i]*=bagMotionLimit/angle;outward+=state.angularVelocity[i]*state.angularOffset[i]/bagMotionLimit;}
-                if(outward>0)for(unsigned i=0;i<3;++i)state.angularVelocity[i]-=outward*state.angularOffset[i]/bagMotionLimit;
+                for(unsigned i=0;i<3;++i){state.angularOffset[i]*=angularLimit/angle;outward+=state.angularVelocity[i]*state.angularOffset[i]/angularLimit;}
+                if(outward>0)for(unsigned i=0;i<3;++i)state.angularVelocity[i]-=outward*state.angularOffset[i]/angularLimit;
             }
         }
         state.position=position;state.rotation=wanted;state.verticalAnchor=anchor;state.time=now;
@@ -172,5 +197,57 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         if(pivotHeight!=0)for(unsigned row=0;row<3;++row)
             pose[12+row]+=pivotHeight*(original[8+row]-pose[8+row]);
     }
-    for(unsigned axis=0;axis<3;++axis)pose[12+axis]+=worldUp[axis]*state.verticalOffset;
+    if(!pinContact)for(unsigned axis=0;axis<3;++axis)pose[12+axis]+=worldUp[axis]*state.verticalOffset;
+    if(bagJiggleDelay(identity)){
+        // Phase the emitted local sway, including inherited torso animation.
+        // Delaying only the small spring force leaves the visible bag following
+        // the same large body cycle. World travel is restored by the caller;
+        // attachment position stays on THIS frame's live mount. Delay only
+        // the smooth spring give in translation, not the hip bone's absolute
+        // height: clipping that delayed height creates sharp catch-up bobs.
+        auto rotation=bagRotation(pose,scale);
+        if(state.jiggle.count){
+            const auto& previous=state.jiggle.samples[state.jiggle.head].value;
+            float dot=0;for(unsigned i=0;i<4;++i)dot+=previous[i]*rotation[i];
+            if(dot<0)for(float& value:rotation)value=-value;
+        }
+        std::array<float,5> sample{};
+        for(unsigned i=0;i<4;++i)sample[i]=rotation[i];
+        sample[4]=state.verticalOffset;
+        const auto delayed=delayedBagJiggle(state.jiggle,sample,now,identity);
+        BagQuaternion phased{{delayed[0],delayed[1],delayed[2],delayed[3]}};
+        const float norm=std::sqrt(bagRotationDot(phased,phased));
+        // Before a full delay is available, keep the current valid pose.
+        if(norm>.000001f){
+            if(elapsed){
+                state.phaseWeight+=(1-std::exp(-float(elapsed)*.001f/.08f))*((activeMotion?1.f:0.f)-state.phaseWeight);
+                if(!activeMotion&&state.phaseWeight<.001f)state.phaseWeight=0;
+            }
+            for(float& value:phased)value/=norm;
+            if(bagRotationDot(phased,wanted)<0)for(float& value:phased)value=-value;
+            const BagQuaternion inverse{{-wanted[0],-wanted[1],-wanted[2],wanted[3]}};
+            auto delta=bagRotationProduct(phased,inverse);
+            const float sine=std::sqrt(delta[0]*delta[0]+delta[1]*delta[1]+delta[2]*delta[2]);
+            const float angle=2*std::atan2(sine,std::fmax(0.f,delta[3]));
+            const float limit=(12.f+(pinContact?18.f*state.rocking:0))*.01745329252f;
+            if(sine>.000001f){
+                // Timing is independent of size. Blending this correction
+                // toward the current pose collapses a small bag's phase delay
+                // (35% used only ~19ms of the former 47ms delay). The spring
+                // amplitude is already size-scaled before it enters history.
+                const float applied=std::fmin(limit,angle*state.phaseWeight);
+                for(unsigned i=0;i<3;++i)delta[i]*=std::sin(applied*.5f)/sine;
+                delta[3]=std::cos(applied*.5f);phased=bagRotationProduct(delta,wanted);
+            }
+            const auto current=pose;
+            const float x=phased[0],y=phased[1],z=phased[2],w=phased[3];
+            pose={{(1-2*(y*y+z*z))*scale,2*(x*y+z*w)*scale,2*(x*z-y*w)*scale,0,
+                   2*(x*y-z*w)*scale,(1-2*(x*x+z*z))*scale,2*(y*z+x*w)*scale,0,
+                   2*(x*z+y*w)*scale,2*(y*z-x*w)*scale,(1-2*(x*x+y*y))*scale,0,
+                   current[12],current[13],current[14],1}};
+            const float vertical=state.verticalOffset+state.phaseWeight*(delayed[4]-state.verticalOffset);
+            for(unsigned i=0;i<3;++i)
+                pose[12+i]+=pivotHeight*(current[8+i]-pose[8+i])+(pinContact?0:worldUp[i]*(vertical-state.verticalOffset));
+        }
+    }
 }

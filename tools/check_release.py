@@ -17,7 +17,8 @@ for name in lua_tests:
 for name in ['release_version', 'body_arrow_pixels', 'test_ui_assets', 'test_cloth_bag_shape', 'test_bag_deformation', 'test_bag_catalog']:
     subprocess.run([sys.executable, f'tests/{name}.py'], cwd=root, check=True)
 with tempfile.TemporaryDirectory(prefix='closet-native-check-') as temporary:
-    for name in ['weapon_renderer', 'bag_response']:
+    for name in ['weapon_renderer', 'bag_motion', 'bag_response', 'bag_jiggle', 'bag_size_motion', 'bag_phase_size',
+                 'bag_body_binding', 'bag_hip_contact', 'bag_body_rocking', 'bag_tuning']:
         executable = str(Path(temporary)/name)
         subprocess.run(['c++', '-std=c++17', '-O0', f'tests/{name}.cpp', '-o', executable], cwd=root, check=True)
         subprocess.run([executable], cwd=root, check=True)

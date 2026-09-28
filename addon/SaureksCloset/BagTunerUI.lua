@@ -367,7 +367,8 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             local state=V:GetBagTunerState()
             local coarse=IsShiftKeyDown and IsShiftKeyDown() and 10 or 1
             local value=((state.values or {})[owner.field.key] or 0)+owner.field.step*owner.direction*coarse
-            value=math.max(owner.field.min,math.min(owner.field.max,value))
+            local low,high=V:BagTunerFieldBounds(owner.field,state.bag)
+            value=math.max(low,math.min(high,value))
             local ok,err=V:SetBagTunerValue(owner.field.key,value)
             if not ok then showMessage(err or "That value could not be applied.") end
             V:RefreshBagTunerUI()

@@ -2,6 +2,7 @@
 #include "WeaponState.h"
 #include "BowPlacement.h"
 #include "BagPlacement.h"
+#include "BagBodyBinding.h"
 #include "BagCatalog.h"
 #include "PlacementTuning.h"
 #include "StaffPlacement.h"
@@ -74,6 +75,8 @@ struct BagInstance {
     void* child=nullptr;
     BagMotion motion;
     BagResponse response;
+    BagBodyBinding bodyBinding;
+    bool bodyBound=false;
     std::array<BagTuningEntry,16> fits{};
 };
 static unsigned bagAttachment(unsigned mount){return mount==1?32:mount==2?33:28;}
@@ -147,6 +150,7 @@ static void rememberClonedBagPreview(std::uintptr_t source,std::uintptr_t model)
     if(!copy.child)if(const auto* previous=clonedBagChild(source)){copy=*previous;copy.child=model;}
     if(copy.child&&copy.guid==getPlayer()){
         copy.bag.child=reinterpret_cast<void*>(model);copy.bag.motion={};copy.bag.response={};
+        copy.bag.bodyBinding={};copy.bag.bodyBound=false;
         for(auto& entry:clonedBagChildren)if(entry.child==model){entry=copy;return;}
         for(auto& entry:clonedBagChildren)if(!entry.child){entry=copy;return;}
         return;
@@ -200,6 +204,12 @@ static bool bagIsAirborne(const WeaponContext& context){
     unsigned flags=0;
     constexpr unsigned nonBallistic=0x400|0x800|0x200000|0x800000|0x1000000|0x8000000;
     return !context.token&&context.unit&&read(context.unit+0x9E8,flags)&&(flags&0x6000)&&!(flags&nonBallistic);
+}
+static bool bagMotionActive(const WeaponContext& context){
+    // Walking/swimming still move the mount even though they are not running.
+    // Turning in place and idle animation do not supply locomotion impulses.
+    unsigned flags=0;
+    return bagIsAirborne(context)||(!context.token&&context.unit&&read(context.unit+0x9E8,flags)&&(flags&0xF)&&!(flags&0x800));
 }
 static float bagAirLiftTarget(const WeaponContext& context){
     if(!bagIsAirborne(context))return 0;
@@ -273,7 +283,7 @@ static int __fastcall setBagFit(void* L){
         for(int i=0;i<7;++i){
             if(!isNumber(L,i+5))return result(L,-2);
             const double value=toNumber(L,i+5);
-            const double minimum=i<3?-1:(i<6?-180:25),maximum=i<3?1:(i<6?180:200);
+            const double minimum=i==2&&bag==1?-3:(i<3?-1:(i<6?-180:25)),maximum=i<3?1:(i<6?180:200);
             // Validate as a double before narrowing; just-outside values must
             // not round back into the permitted float range.
             if(!std::isfinite(value)||value<minimum||value>maximum)return result(L,-2);
@@ -315,10 +325,10 @@ static bool positionBackpack(void* child,std::array<float,16>& adjusted,bool smo
     bagTuningUseOwner(owner);
     BagMotion previewMotion;
     auto& motion=instance?instance->motion:context?context->bagMotion:previewMotion;
-    std::array<float,16> back,torso,local,modelToRender;std::array<float,3> position;
+    std::array<float,16> back,torso,local,modelToRender;std::array<float,3> position,mountRest;
     // The back anchor identifies the race/sex fit even for a hip-mounted bag.
     // Position and animation come from the chosen attachment's own parent bone.
-    if(!animatedAttachmentMatrix(parent,point,back,&torso)||!read(model+0xBC,local)||!read(parent+0xFC,modelToRender)||
+    if(!animatedAttachmentMatrix(parent,point,back,&torso,&mountRest)||!read(model+0xBC,local)||!read(parent+0xFC,modelToRender)||
        !read(parent+0x30,data)||!read(data+0x130,header)||!read(header+0x110,lookup)||
        !read(lookup+56,index)||!read(header+0x108,attachments)||!read(attachments+48*index+8,position)){
         motion={};if(instance)instance->response={};return false;
@@ -335,10 +345,31 @@ static bool positionBackpack(void* child,std::array<float,16>& adjusted,bool smo
         responseReady=bagResponseResource(model,asset->material,responseProfile);
         if(!responseReady)instance->response={};
     }
+    const auto now=bagClockMilliseconds();
+    BagMatrix bodyFit;
+    bool bodyBound=false;
+    if(instance){
+        const BagMatrix neutral{{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}};
+        auto restAttachment=neutral;BagMatrix restBag;
+        for(unsigned axis=0;axis<3;++axis)restAttachment[12+axis]=mountRest[axis];
+        const unsigned previousBuilds=instance->bodyBinding.builds;
+        // Reconstruct the saved neutral fit before attaching its upper rear
+        // contact to the nearby body's skin. Dragging down to a foot therefore
+        // follows the foot, regardless of the original back/hip menu preset.
+        if(bagPlacement(restAttachment,neutral,neutral,position,restBag,1,nullptr,0,header,false,
+            nullptr,nullptr,0,instance->fits.data(),mount,identity))
+            bodyBound=bagBindBodyPoint(instance->bodyBinding,parent,restBag,
+                responseReady?responseProfile.top:.6195f,modelToRender,now,bodyFit);
+        if(bodyBound!=instance->bodyBound||previousBuilds!=instance->bodyBinding.builds){
+            motion={};instance->response={};
+        }
+        instance->bodyBound=bodyBound;
+    }
     const bool valid=bagPlacement(back,torso,local,position,adjusted,1,
-        smooth?&motion:nullptr,smooth?bagClockMilliseconds():0,header,context&&bagIsRunning(*context),&modelToRender,
+        smooth?&motion:nullptr,now,header,context&&bagIsRunning(*context),&modelToRender,
         smooth?&worldToRender:nullptr,context?bagAirLiftTarget(*context):0,instance?instance->fits.data():nullptr,mount,identity,
-        instance&&smooth&&responseReady?&instance->response:nullptr,responseReady?&responseProfile:nullptr,context?bagResponseFlight(*context):0);
+        instance&&smooth&&responseReady?&instance->response:nullptr,responseReady?&responseProfile:nullptr,context?bagResponseFlight(*context):0,
+        context&&bagMotionActive(*context),bodyBound?&bodyFit:nullptr);
     if(valid&&clothReady){
         // Compatibility with an older cloth asset still installed on disk:
         // clear its blend and hold the undeformed Stand pose. Native character
@@ -716,7 +747,7 @@ static void releaseBackpack(WeaponContext& c){
     releaseModel(child);
 }
 static void releaseBagInstance(WeaponContext& context,BagInstance& bag){
-    auto* child=bag.child;bag.child=nullptr;bag.motion={};bag.response={};
+    auto* child=bag.child;bag.child=nullptr;bag.motion={};bag.response={};bag.bodyBinding={};bag.bodyBound=false;
     if(!child)return;
     std::uintptr_t parent=0;
     if(read(reinterpret_cast<std::uintptr_t>(child)+0x1CC,parent)&&parent==context.parent)detachChild(child);
@@ -1232,7 +1263,7 @@ static int __fastcall setBagInstanceFit(void* L){
         for(int i=0;i<7;++i){
             if(!isNumber(L,6+i))return result(L,-2);
             const double value=toNumber(L,6+i);
-            if(!std::isfinite(value)||value<(i<3?-1:i<6?-180:25)||value>(i<3?1:i<6?180:200))return result(L,-2);
+            if(!std::isfinite(value)||value<(i==2?-3:i<3?-1:i<6?-180:25)||value>(i<3?1:i<6?180:200))return result(L,-2);
             *fields[i]=static_cast<float>(value);
         }
         unsigned motion=0;if(!bagLuaUnsigned(L,13,1,motion))return result(L,-2);

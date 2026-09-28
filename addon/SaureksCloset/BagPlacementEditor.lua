@@ -52,7 +52,7 @@ function V:MoveBagPlacement(dx,dy,height,rotation)
     if not defaults then return false end
     local values=self:Copy(state.values)
     local units=2*(heights[state.race] or heights[1])[state.sex+1]/(height*1.30)
-    values.up=clamp(values.up+dy*units,-1,1)
+    values.up=clamp(values.up+dy*units,-3,1)
     if dx~=0 then
         local rx,ry,bx,by=geometry(state,bag.mount)
         local x=bx+values.inset-defaults.inset;local y=by+values.left-defaults.left

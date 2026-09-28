@@ -314,13 +314,16 @@ int main(){
             assert(setBagFit(&invalid)==-2);
         }
         for(unsigned index=4;index<11;++index){
-            const double minimum=index<7?-1:(index<10?-180:25),maximum=index<7?1:(index<10?180:200);
+            const double minimum=index==6?-3:(index<7?-1:(index<10?-180:25)),maximum=index<7?1:(index<10?180:200);
             for(double value:{std::nextafter(minimum,-std::numeric_limits<double>::infinity()),
                               std::nextafter(maximum,std::numeric_limits<double>::infinity())}){
                 auto invalid=valid;invalid.values[index]=value;assert(setBagFit(&invalid)==-2);
             }
         }
         for(double value:{-.1,.5,2.}){auto invalid=valid;invalid.values[11]=value;assert(setBagFit(&invalid)==-2);}
+        auto footFit=valid;footFit.values[6]=-3;
+        assert(setBagFit(&footFit)==1&&bagTuningEntries[2].values.up==-3);
+        footFit.values[0]=101;assert(setBagFit(&footFit)==-2); // Weapon limits remain unchanged.
         for(auto key:std::vector<std::vector<double>>{{0,2,0},{2,2,0},{1,0,0},{1,9,0},{1,2,2},{1,2,-1},{1,.5,0}}){
             Lua invalid{key};assert(getBagFitDefaults(&invalid)==-2);
             invalid.values.push_back(0);assert(setBagFit(&invalid)==-2);
@@ -1243,6 +1246,12 @@ int main(){
             memory[bc->unit+0x9E8]=stopped;assert(!bagIsRunning(*bc));
         }
         auto previewContext=*bc;previewContext.token=8;memory[bc->unit+0x9E8]=1;assert(!bagIsRunning(previewContext));
+        for(unsigned moving:{1u,2u,4u,8u,0x101u,0x200001u,0x2000u,0x4000u}){
+            memory[bc->unit+0x9E8]=moving;assert(bagMotionActive(*bc)&&!bagMotionActive(previewContext));
+        }
+        for(unsigned stopped:{0u,0x10u,0x20u,0x100u,0x200000u,0x801u}){
+            memory[bc->unit+0x9E8]=stopped;assert(!bagMotionActive(*bc));
+        }
         for(unsigned airborne:{0x2000u,0x4000u,0x6000u,0x2101u,0x2200u,0x20002000u}){
             memory[bc->unit+0x9E8]=airborne;assert(bagIsAirborne(*bc)&&!bagIsAirborne(previewContext));
         }
@@ -1920,6 +1929,11 @@ int main(){
         }
         auto badFit=firstFit;badFit.values[5]=1.0000000001;
         assert(setBagInstanceFit(&badFit)==-2&&context->bags[0].fits[0].revision==revision);
+        badFit=firstFit;badFit.values[7]=std::nextafter(-3.,-std::numeric_limits<double>::infinity());
+        assert(setBagInstanceFit(&badFit)==-2&&context->bags[0].fits[0].revision==revision);
+        auto footRange=firstFit;footRange.values[7]=-3;
+        assert(setBagInstanceFit(&footRange)==1&&context->bags[0].fits[0].values.up==-3);
+        assert(setBagInstanceFit(&firstFit)==1);
         for(double value:{-1.,.5,17.,999999.,std::numeric_limits<double>::infinity()}){
             auto invalid=choices;invalid.values[1]=value;
             assert(setBagsStatus(&invalid)==-2&&context->bags[0].child==children[0]);
@@ -2150,6 +2164,7 @@ int main(){
         c.token=77;assert(bagResponseFlight(c)==0);c.token=0;
         memory[player.unit+0x9E8]=0;assert(bagResponseFlight(c)==0);
         // World mount samples include root travel but exclude camera movement.
+        memory[player.unit+0x9E8]=1;
         for(unsigned frame=0;frame<50;++frame){
             const float time=frame*.016f;auto camera=identity;camera[12]=frame*.4f;camera[13]=-frame*.2f;
             auto actor=identity;actor[14]=.08f*std::sin(time*12);
@@ -2168,6 +2183,122 @@ int main(){
         memory[model+0x94]=memory[c.parent+0x94];assert(!applyBagResponseBones(child)&&matrices==safeMatrices);
         memory[model+0x94]=0xC40000;memory[ch+0x34]=62;
         assert(!applyBagResponseBones(child)&&matrices==safeMatrices);memory[ch+0x34]=61;
+        // Five copies driven by the SAME torso must visibly separate in the
+        // final native pose, not merely in a tiny secondary spring offset.
+        // Exercise recursive and both lazy native-update routes, including a
+        // duplicate evaluation of each child at the same timestamp.
+        {
+            constexpr unsigned count=5,step=8;
+            std::array<std::vector<float>,count> angles;
+            matrices[c.parent+0xFC]=identity;matrices[0xC28000+0x9C]=identity;
+            memory[player.unit+0x9E8]=1;
+            for(unsigned slot=0;slot<count;++slot){
+                auto& item=c.bags[slot];item={};item.model=12;item.child=pointer(model+slot*0x1000);
+                const auto address=::address(item.child),palette=std::uintptr_t(0xC40000+slot*0x10000);
+                memory[address+0x30]=childData;memory[address+0x10]=1;
+                memory[address+0x1CC]=c.parent;memory[address+0x1D0]=28;
+                memory[address+0x94]=palette;matrices[address+0xBC]=identity;matrices[address+0xFC]=rest;
+                for(unsigned bone=0;bone<61;++bone)matrices[palette+64*bone]=rest;
+            }
+            evaluateAttachmentBones=true;
+            const std::array<std::uintptr_t,3> callers{{0x718761,0x71415D,0x714183}};
+            for(unsigned frame=0;frame<560;++frame){
+                const float wave=std::sin(frame*step*(2*3.14159265358979323846f/640));
+                const float angle=7*.01745329252f*wave;
+                auto animated=identity;animated[5]=animated[10]=std::cos(angle);
+                animated[6]=std::sin(angle);animated[9]=-animated[6];animated[14]=.025f*wave;
+                matrices[0xC27000]=matrices[0xC27000+64]=animated;bagTestTime+=step;
+                for(unsigned slot=0;slot<count;++slot){
+                    const auto object=c.bags[slot].child;
+                    updateAttachmentForCaller(object,identity.data(),nullptr,nullptr,1,callers[(frame+slot)%callers.size()]);
+                    const auto pose=matrices.at(address(object)+0xFC);
+                    updateAttachmentForCaller(object,identity.data(),nullptr,nullptr,1,callers[(frame+slot+1)%callers.size()]);
+                    assert(matrices.at(address(object)+0xFC)==pose);
+                    if(frame>=160)angles[slot].push_back(std::atan2(pose[6],pose[5]));
+                }
+            }
+            const auto correlation=[&](unsigned slot,unsigned lag){
+                double sx=0,sy=0,sxx=0,syy=0,sxy=0;
+                constexpr unsigned samples=320; // Four full gait cycles.
+                for(unsigned i=0;i<samples;++i){
+                    const double x=angles[0][i],y=angles[slot][i+lag];
+                    sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y;
+                }
+                const double variance=(sxx-sx*sx/samples)*(syy-sy*sy/samples);
+                assert(variance>1.e-6);
+                return (sxy-sx*sy/samples)/std::sqrt(variance);
+            };
+            for(unsigned slot=1;slot<count;++slot){
+                unsigned bestLag=0;double best=-2;
+                for(unsigned lag=0;lag<=30;++lag){const double value=correlation(slot,lag);if(value>best){best=value;bestLag=lag;}}
+                assert(best>.97&&correlation(slot,0)<.96);
+                assert(std::abs(int(bestLag*step)-int(bagJiggleDelay(201+slot)))<=16);
+            }
+            // Stopping locomotion must remove extra jiggle even while native
+            // idle breathing keeps the mount moving. It must not restart from
+            // delayed samples. The base fitted bag continues to follow the body.
+            memory[player.unit+0x9E8]=0;
+            for(unsigned frame=0;frame<200;++frame){
+                const float angle=.035f*std::sin(frame*.12f);
+                auto idle=identity;idle[5]=idle[10]=std::cos(angle);
+                idle[6]=std::sin(angle);idle[9]=-idle[6];idle[14]=.008f*std::sin(frame*.08f);
+                matrices[0xC27000]=matrices[0xC27000+64]=idle;bagTestTime+=step;
+                for(unsigned slot=0;slot<count;++slot){
+                    auto& item=c.bags[slot];BagMatrix fitted;
+                    updateAttachmentForCaller(item.child,identity.data(),nullptr,nullptr,1,callers[slot%callers.size()]);
+                    assert(positionBackpack(item.child,fitted));
+                    if(frame>=100){
+                        const auto& pose=matrices.at(address(item.child)+0xFC);
+                        for(unsigned element=0;element<16;++element)assert(std::fabs(pose[element]-fitted[element])<.00001f);
+                        assert(bagResponseLength(item.response.driver)==0);
+                        assert(std::fabs(item.response.offset[2]+.1f*1.239f*.45f*.85f)<.0001f);
+                    }
+                }
+            }
+            memory[player.unit+0x9E8]=1;
+            std::array<float,count> resumed{};
+            for(unsigned frame=0;frame<120;++frame){
+                const float angle=.12f*std::sin(frame*.12f);
+                auto moving=identity;moving[5]=moving[10]=std::cos(angle);
+                moving[6]=std::sin(angle);moving[9]=-moving[6];moving[14]=.025f*std::sin(frame*.12f);
+                matrices[0xC27000]=matrices[0xC27000+64]=moving;bagTestTime+=step;
+                for(unsigned slot=0;slot<count;++slot){
+                    auto& item=c.bags[slot];BagMatrix fitted;
+                    updateAttachmentForCaller(item.child,identity.data(),nullptr,nullptr,1,callers[slot%callers.size()]);
+                    assert(positionBackpack(item.child,fitted));
+                    const auto& pose=matrices.at(address(item.child)+0xFC);
+                    resumed[slot]=std::fmax(resumed[slot],std::fabs(pose[6]-fitted[6]));
+                }
+            }
+            for(float movement:resumed)assert(movement>.001f);
+            // Hold the torso still to isolate the original upward/outward
+            // jump lift. Every bag receives one native descent signal; each
+            // begins at its own time and eventually reaches the same full lift.
+            matrices[0xC27000]=matrices[0xC27000+64]=identity;
+            for(unsigned frame=0;frame<150;++frame){
+                bagTestTime+=step;
+                for(auto& item:c.bags)if(item.child)updateAttachmentForCaller(item.child,identity.data(),nullptr,nullptr,1,0x714183);
+            }
+            std::array<unsigned,count> halfLift{};
+            memory[player.unit+0x9E8]=0x2000;scalars[player.unit+0xA48]=-8;
+            for(unsigned frame=0;frame<300;++frame){
+                memory[player.unit+0xA20]=(frame+1)*step;bagTestTime+=step;
+                for(unsigned slot=0;slot<count;++slot){
+                    auto& item=c.bags[slot];
+                    updateAttachmentForCaller(item.child,identity.data(),nullptr,nullptr,1,callers[(frame+slot)%callers.size()]);
+                    if(!halfLift[slot]&&item.motion.airborneWeight>=.5f)halfLift[slot]=(frame+1)*step;
+                }
+            }
+            const auto restBottom=transformPoint(rest,{{0,0,-.6195f}});
+            for(unsigned slot=0;slot<count;++slot){
+                assert(halfLift[slot]&&c.bags[slot].motion.airborneWeight>.99f);
+                if(slot)assert(halfLift[slot]>=halfLift[slot-1]+24);
+                const auto bottom=transformPoint(matrices.at(address(c.bags[slot].child)+0xFC),{{0,0,-.6195f}});
+                assert(bottom[0]<restBottom[0]-.08f&&bottom[2]>restBottom[2]+.001f);
+            }
+            evaluateAttachmentBones=false;
+            std::cout<<"PASS: five rendered bag poses have distinct gait phases, idle settling, restart and staggered original jump lift\n";
+        }
         // NPCs retain their native state and never inherit player adjustments.
         c.guid=player.guid+1;
         const auto npcMemory=memory;const auto npcMatrices=matrices;const auto npcOutput=output;const auto npcCalls=sequenceCalls.size();
@@ -2178,6 +2309,92 @@ int main(){
         assert(memory==npcMemory&&matrices==npcMatrices&&sequenceCalls.size()==npcCalls);
         weaponContexts=oldContexts;
         std::cout<<"PASS: local control response on back/hips, world mounting motion, old-clip suppression and player isolation\n";
+    }
+    {
+        // Exercise the real positionBackpack path, including its reconstruction
+        // of the saved neutral fit. A bag dragged down from a hip preset must
+        // follow the foot's skin rather than the original hip attachment.
+        const auto savedContexts=weaponContexts;
+        auto& context=weaponContexts[0];context={};context.parent=0xD4000;context.guid=player.guid;
+        auto& bag=context.bags[0];bag.model=12;bag.mount=1;bag.child=pointer(0xD5000);
+        const auto child=address(bag.child);
+        modelName(bag.child,bagAsset(12)->model);
+        memory[memory[child+0x30]+0x130]=0xD460000; // No deformation metadata: use the legacy top height.
+        const std::uintptr_t data=0xD400000,header=data+0x1000,lookup=data+0x2000,records=data+0x3000;
+        const std::uintptr_t palette=data+0x4000,definitions=data+0x5000,vertices=data+0x6000;
+        const std::uintptr_t views=data+0x7000,indices=data+0x8000,sections=data+0x9000;
+        memory[context.parent+0x30]=data;memory[data+0x130]=header;
+        memory[context.parent+0x94]=palette;matrices[context.parent+0xFC]=identity;
+        memory[child+0x1CC]=context.parent;memory[child+0x1D0]=32;
+        auto local=identity;local[0]=local[5]=local[10]=.7f;local[12]=.04f;local[14]=-.08f;
+        matrices[child+0xBC]=local;
+        memory[header+0x10C]=34;memory[header+0x110]=lookup;memory[lookup+56]=0;memory[lookup+64]=1;
+        memory[header+0x104]=2;memory[header+0x108]=records;
+        memory[records]=28;memory[records+4]=1;positions[records+8]=bagFits[1].anchor;
+        memory[records+48]=32;memory[records+52]=1;positions[records+56]={{.01f,.17f,.9f}};
+        memory[header+0x34]=4;memory[header+0x38]=definitions;memory[definitions+108+8]=0;
+        for(unsigned i=0;i<4;++i)matrices[palette+64*i]=identity;
+        auto& fit=bag.fits[1];fit.enabled=true;fit.revision=9;fit.values.up=-.9f;
+        fit.values.left=.03f;fit.values.inset=.01f;fit.values.pitch=13;fit.values.yaw=60;
+        fit.values.scale=40;fit.values.motion=false;
+        const auto savedFit=fit.values;
+        BagMatrix neutral,output;assert(positionBackpack(bag.child,neutral)&&!bag.bodyBound);
+        const auto neutralModel=bagMatrixProduct(neutral,local);
+        const auto contact=transformPoint(neutralModel,{{0,0,.6195f}});
+        memory[header]=0x3032444D;memory[header+4]=256;
+        memory[header+0x44]=3;memory[header+0x48]=vertices;
+        memory[header+0x4C]=1;memory[header+0x50]=views;
+        memory[views]=3;memory[views+4]=indices;memory[views+24]=2;memory[views+28]=sections;
+        memory[sections]=0;memory[sections+4]=0;memory[sections+6]=2;
+        memory[sections+32]=1501;memory[sections+36]=2;memory[sections+38]=1;
+        positions[vertices]=positions[records+56];positions[vertices+48]=contact;
+        positions[vertices+48][0]+=.005f;positions[vertices+96]=contact;
+        for(unsigned vertex=0;vertex<3;++vertex){
+            memory[indices+2*vertex]=vertex;
+            for(unsigned influence=0;influence<4;++influence){
+                memory[vertices+48*vertex+12+influence]=influence?0:255;
+                memory[vertices+48*vertex+16+influence]=influence?0:vertex+1;
+            }
+        }
+        const auto close=[](const BagMatrix& a,const BagMatrix& b){
+            for(unsigned i=0;i<16;++i)assert(std::fabs(a[i]-b[i])<.00002f);
+        };
+        BagMatrix foot=identity;
+        for(unsigned frame=0;frame<30;++frame){
+            const float angle=.9f*std::sin(frame*.23f);foot=identity;
+            foot[0]=foot[10]=std::cos(angle);foot[2]=-std::sin(angle);foot[8]=std::sin(angle);
+            foot[12]=.2f*std::sin(frame*.31f);foot[14]=.15f*std::sin(frame*.19f);
+            auto hip=identity;hip[13]=.3f*std::cos(frame*.2f);hip[14]=.1f;
+            matrices[palette]=matrices[palette+64]=hip;matrices[palette+128]=foot;
+            bagTestTime+=16;assert(positionBackpack(bag.child,output));
+            assert(bag.bodyBound&&bag.bodyBinding.bones[0]==2&&bag.bodyBinding.builds==1);
+            close(output,bagMatrixProduct(foot,neutral));
+            const auto pinned=transformPoint(bagMatrixProduct(output,local),{{0,0,.6195f}});
+            const auto expected=transformPoint(foot,contact);
+            for(unsigned axis=0;axis<3;++axis)assert(std::fabs(pinned[axis]-expected[axis])<.00002f);
+        }
+        assert(fit.values==savedFit&&fit.revision==9);
+        // A Character-window clone must bind to its own live skeleton and view,
+        // even when it shares the source's mesh resource and saved placement.
+        const std::uintptr_t cloneParent=0xD6000,cloneChild=0xD7000,clonePalette=0xD500000;
+        modelName(pointer(cloneChild),bagAsset(12)->model);
+        memory[cloneChild+0x1CC]=cloneParent;memory[cloneChild+0x1D0]=32;matrices[cloneChild+0xBC]=local;
+        memory[cloneParent+0x30]=data;memory[cloneParent+0x94]=clonePalette;
+        auto view=identity;view[0]=0;view[1]=1.5f;view[4]=-1.5f;view[5]=0;view[10]=1.5f;view[12]=8;
+        matrices[cloneParent+0xFC]=view;
+        auto cloneFoot=identity;cloneFoot[13]=-.4f;cloneFoot[14]=.3f;
+        for(unsigned i=0;i<4;++i)matrices[clonePalette+64*i]=bagMatrixProduct(view,i==2?cloneFoot:identity);
+        rememberClonedBagPreview(child,cloneChild);rememberClonedBagPreview(context.parent,cloneParent);
+        auto* clone=clonedBagChild(cloneChild);assert(clone&&!clone->bag.bodyBinding.ready);
+        assert(positionBackpack(pointer(cloneChild),output));
+        close(output,bagMatrixProduct(view,bagMatrixProduct(cloneFoot,neutral)));
+        assert(clone->bag.bodyBound&&clone->bag.bodyBinding.builds==1&&bag.bodyBinding.builds==1);
+        assert(clone->bag.fits[1].values==savedFit&&positionBackpack(bag.child,output));
+        close(output,bagMatrixProduct(foot,neutral));
+        for(auto& copy:clonedBagChildren)if(copy.child==cloneChild)copy={};
+        for(auto& copy:clonedBagPreviews)if(copy.model==cloneParent)copy={};
+        weaponContexts=savedContexts;
+        std::cout<<"PASS: real bag placement binds saved hip-to-foot fits, pins live skin contact and uses independent cloned skeletons\n";
     }
     std::cout<<"PASS: native hook simulation, cross-family ranged drawing/sheathing, real metadata isolation, staff body contact and placement tuning\n";
 }

@@ -15,7 +15,8 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
                          unsigned bag=1,BagMotion* motion=nullptr,std::uint32_t now=0,std::uintptr_t model=0,bool running=false,
                          const BagMatrix* modelToRender=nullptr,const BagMatrix* worldToRender=nullptr,float airLiftTarget=0,
                          const BagTuningEntry* instanceFits=nullptr,unsigned baseMount=0,unsigned identity=0,
-                         BagResponse* response=nullptr,const BagResponseProfile* responseProfile=nullptr,float flight=0){
+                         BagResponse* response=nullptr,const BagResponseProfile* responseProfile=nullptr,float flight=0,bool activeMotion=true,
+                         const BagMatrix* fittedOverride=nullptr){
     BagMatrix back=renderedBack,torso=renderedTorso,renderToModel{};
     if(modelToRender){
         if(!bagAffineInverse(*modelToRender,renderToModel))return false;
@@ -79,6 +80,13 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
     // even if its local matrix contains scale/rotation or an origin offset.
     BagMatrix inverseLocal;
     if(!bagAffineInverse(local,inverseLocal))return false;
+    // A body binding supplies the exact live skin contact in model space.
+    // Saved numeric fits still describe the same neutral placement.
+    if(fittedOverride){
+        BagMatrix validation;
+        if(!bagAffineInverse(*fittedOverride,validation))return false;
+        target=*fittedOverride;
+    }
     if(motion){
         std::array<float,3> worldUp{{0,0,1}};
         std::array<float,3> verticalMeasure=worldUp;
@@ -102,7 +110,7 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
                 // Include root travel/jumps and the offset from the mounting
                 // bone. Camera motion cancels before sample history is stored.
                 const float sampleScale=std::sqrt(sample[8]*sample[8]+sample[9]*sample[9]+sample[10]*sample[10]);
-                if(sampleReady)updateBagResponse(*response,sample,sampleScale,now,model,fitKey,*responseProfile,gravity,flight);
+                if(sampleReady)updateBagResponse(*response,sample,sampleScale,now,model,fitKey,*responseProfile,gravity,flight,instanceFits?identity:0,activeMotion);
                 else *response={};
             }else *response={};
         }
@@ -111,16 +119,17 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
         // above, so this rigid secondary movement cannot feed back into itself.
         if(tuning.motion&&directionReady){
             const auto fitted=target;
+            const float contactTop=responseProfile?responseProfile->top:.6195f;
+            const float pivot=(fittedOverride||baseMount)?contactTop:mount.raisedOrigin;
             smoothBagMotion(*motion,target,size,now,model,
-                (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,mount.raisedOrigin,worldUp,&verticalMeasure,airLiftTarget);
+                (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,pivot,worldUp,&verticalMeasure,airLiftTarget,instanceFits?identity:0,activeMotion,fittedOverride!=nullptr);
             if(motion->airborneWeight>.000001f){
                 BagMatrix worldToModel{{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}},modelToWorld;
                 if(modelToRender&&worldToRender)worldToModel=bagMatrixProduct(renderToModel,*worldToRender);
+                const std::array<float,3> contact{{0,0,contactTop}};
                 if(bagAffineInverse(worldToModel,modelToWorld))
                     liftBagInGravity(target,fitted,modelToWorld,worldToModel,
-                        {{baseMount?(baseMount==1?orientation[4]:-orientation[4]):-orientation[0],
-                          baseMount?(baseMount==1?orientation[5]:-orientation[5]):-orientation[1],
-                          baseMount?(baseMount==1?orientation[6]:-orientation[6]):-orientation[2]}},motion->airborneWeight);
+                        {{-fitted[0],-fitted[1],-fitted[2]}},motion->airborneWeight,fittedOverride?&contact:nullptr);
             }
         }
         else if(motion->ready)*motion={};

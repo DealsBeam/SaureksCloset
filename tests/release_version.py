@@ -11,7 +11,9 @@ assert f'## Version: {version}\n' in (addon / 'SaureksCloset.toc').read_text()
 assert f'V.REQUIRED_RENDERER={renderer}\n' in (addon / 'Updates.lua').read_text()
 assert f'version(void* L){{return result(L,{renderer});}}' in (root / 'native/SaureksCloset.cpp').read_text()
 assert (root / 'update-version.txt').read_text() == f'schema=1\naddon={version}\ndll={renderer}\n'
-for path in [root / 'README.md', addon / 'README.md', addon / 'BAGS-MENU.md',
+# READMEs are independently edited project pages, not release manifests.
+# Keep version checks on installation/release instructions only.
+for path in [addon / 'BAGS-MENU.md',
              addon / 'Installation instructions/READ ME.txt', root / 'BUILDING.md']:
     assert version in path.read_text(), f'Missing current release in {path}'
 assert (root / 'native/SaureksCloset.dll').read_bytes() == (addon / 'Installation instructions/SaureksCloset.dll').read_bytes()

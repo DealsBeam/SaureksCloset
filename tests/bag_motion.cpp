@@ -197,6 +197,7 @@ int main(){
         else assert(greatest<.000001f);
     }
     // Size changes scale the travel budget, never the perpendicular position.
+    float previousSizeTravel=0;
     for(float physicalScale:{.1125f,.3825f,.45f,.9f}){
         BagMotion state;float greatest=0;
         for(unsigned t=0;t<=3000;t+=16){
@@ -205,7 +206,8 @@ int main(){
             smoothBagMotion(state,output,physicalScale,t,1,1,true);
             greatest=std::fmax(greatest,std::fabs(anchorVertical(input,output,0,{{0,0,1}},physicalScale)));
         }
-        assert(greatest>.01f*physicalScale);
+        assert(greatest>previousSizeTravel+.0001f);
+        previousSizeTravel=greatest;
     }
     // Downward-momentum lift has its own envelope, independent of gait rotation.
     // A stationary attachment can lift with descent input, then settle on landing.

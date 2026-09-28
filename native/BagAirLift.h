@@ -18,7 +18,8 @@ static float bagAirFade(float amount){
     return value*value*(3-2*value);
 }
 static bool liftBagInGravity(BagMatrix& pose,const BagMatrix& fitted,const BagMatrix& modelToWorld,
-                             const BagMatrix& worldToModel,std::array<float,3> outwardModel,float weight){
+                             const BagMatrix& worldToModel,std::array<float,3> outwardModel,float weight,
+                             const std::array<float,3>* fixedContact=nullptr){
     if(!std::isfinite(weight)||weight<=0||!bagAirAffine(pose)||!bagAirAffine(fitted)
         ||!bagAirAffine(modelToWorld)||!bagAirAffine(worldToModel))return false;
     for(float value:outwardModel)if(!std::isfinite(value))return false;
@@ -53,7 +54,9 @@ static bool liftBagInGravity(BagMatrix& pose,const BagMatrix& fitted,const BagMa
     if(!std::isfinite(support)||!std::isfinite(panelSize)||panelSize<.000001f
         ||support<panelSize*.00001f)return false;
     const float panelFade=bagAirFade(support/(panelSize*.15f));
-    const std::array<float,3> pivot{{0,inset*halfWidth*widthUp/support,inset*halfHeight*heightUp/support}};
+    const std::array<float,3> pivot=fixedContact?*fixedContact:
+        std::array<float,3>{{0,inset*halfWidth*widthUp/support,inset*halfHeight*heightUp/support}};
+    for(float value:pivot)if(!std::isfinite(value))return false;
     std::array<float,3> restingPivot{},currentPivot{};
     for(unsigned row=0;row<3;++row)for(unsigned column=0;column<3;++column){
         restingPivot[row]+=raw[column*4+row]*pivot[column];

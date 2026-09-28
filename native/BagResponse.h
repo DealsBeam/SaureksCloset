@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include "BagCoordinates.h"
+#include "BagJiggle.h"
 
 // A small placement response, not a cloth solver. A shared spatial field drives
 // local control bones; the top/rear remain fixed while lower/front fabric gives.
@@ -33,6 +34,7 @@ static BagResponseProfile bagResponseProfile(const char* material,float bottom=-
 struct BagResponseStep { float decay=1,dtDecay=0,driverBlend=0; };
 struct BagResponse {
     bool tracking=false,ready=false;
+    bool activeMotion=true;
     std::uintptr_t model=0;
     std::uint64_t fit=0;
     std::uint32_t time=0,stableSince=0;
@@ -43,6 +45,7 @@ struct BagResponse {
     std::array<float,3> driver{},offset{},velocity{};
     std::array<std::array<float,3>,60> weights{};
     std::array<float,3> localOffset{};
+    BagJiggleHistory<4> jiggle;
 };
 static float bagResponseLength(const std::array<float,3>& value){
     return std::sqrt(value[0]*value[0]+value[1]*value[1]+value[2]*value[2]);
@@ -99,13 +102,13 @@ static std::array<BagMatrix,61> bagResponseMatrices(const BagResponse& state,con
 }
 static void updateBagResponse(BagResponse& state,const BagMatrix& pose,float scale,std::uint32_t now,
                              std::uintptr_t model,std::uint64_t fit,const BagResponseProfile& profile,
-                             const std::array<float,3>& worldUp,float flight=0){
+                             const std::array<float,3>& worldUp,float flight=0,unsigned identity=0,bool activeMotion=true){
     const float height=profile.height*scale;
     std::array<double,3> pin{{double(pose[12])+double(pose[8])*profile.top,
         double(pose[13])+double(pose[9])*profile.top,double(pose[14])+double(pose[10])*profile.top}};
     if(!state.tracking||state.model!=model||state.fit!=fit||!(state.profile==profile)){
         const auto builds=state.builds;state={};state.builds=builds;
-        state.tracking=true;state.model=model;state.fit=fit;state.profile=profile;
+        state.tracking=true;state.model=model;state.fit=fit;state.profile=profile;state.activeMotion=activeMotion;
         state.time=state.stableSince=now;state.pin=pin;
         return;
     }
@@ -118,7 +121,7 @@ static void updateBagResponse(BagResponse& state,const BagMatrix& pose,float sca
     // distance cutoff would repeatedly reset the bag during a genuine fall.
     const float seconds=elapsed*.001f;
     if(elapsed>250||bagResponseLength(movement)>std::fmax(2.5f,90.f*seconds)){
-        state.driver={};state.offset={};state.velocity={};state.localOffset={};return;
+        state.driver={};state.offset={};state.velocity={};state.localOffset={};state.jiggle={};return;
     }
     if(!state.ready){
         if(now-state.stableSince<200)return;
@@ -137,7 +140,21 @@ static void updateBagResponse(BagResponse& state,const BagMatrix& pose,float sca
         acceleration[axis]=(next-state.driver[axis])/seconds;state.driver[axis]=next;
     }
     bagResponseLimit(acceleration,35.f*height);
+    if(!activeMotion)acceleration={};
     flight=std::isfinite(flight)?std::fmax(-1.f,std::fmin(1.f,flight)):0;
+    const auto delayed=delayedBagJiggle(state.jiggle,std::array<float,4>{{acceleration[0],acceleration[1],acceleration[2],flight}},now,identity);
+    acceleration={{delayed[0],delayed[1],delayed[2]}};flight=delayed[3];
+    if(!activeMotion){
+        // Keep static cloth sag and landing lift, but do not replay queued gait
+        // impulses or turn idle body animation into fresh fabric wobble.
+        acceleration={};state.driver={};
+        if(state.activeMotion)state.velocity={};
+    }
+    state.activeMotion=activeMotion;
+    // Scale dynamic loads as well as travel limits. Otherwise the same mount
+    // acceleration pushes a tiny bag into its limit on every hip-bone cycle.
+    const float strength=bagJiggleSizeGain(scale);
+    for(float& value:acceleration)value*=strength;
     const float vertical=height*(-profile.sag+profile.lift*std::fmax(0.f,flight)+profile.sag*.5f*std::fmin(0.f,flight));
     std::array<float,3> target{};
     float verticalInertia=0;

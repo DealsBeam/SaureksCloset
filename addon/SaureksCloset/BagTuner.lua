@@ -24,11 +24,16 @@ function V:WeaponTuningAvailable()
     local ok,version=pcall(SaureksClosetRendererVersion)
     return ok and version>=30608
 end
-local function validValues(values)
+function V:BagTunerFieldBounds(field,target)
+    local bag=target==1 or (type(target)=="number" and target>=201 and target<=208)
+    return field.key=="up" and bag and -3 or field.min,field.max
+end
+local function validValues(values,target)
     if type(values)~="table" then return false end
     for _,field in ipairs(V.bagTunerFields) do
         local n=values[field.key]
-        if type(n)~="number" or not (n>=field.min and n<=field.max) then return false end
+        local low,high=V:BagTunerFieldBounds(field,target)
+        if type(n)~="number" or not (n>=low and n<=high) then return false end
     end
     return true
 end
@@ -59,11 +64,11 @@ function V:BagTunerSaved(bag,race,sex)
     local instance=instanceFor(bag)
     if instance then
         local values=instance.fits and instance.fits[race..":"..sex]
-        if validValues(values) then return {schema=1,bag=bag,model=instance.model,mount=instance.mount,race=race,sex=sex,values=values} end
+        if validValues(values,bag) then return {schema=1,bag=bag,model=instance.model,mount=instance.mount,race=race,sex=sex,values=values} end
         return nil
     end
     local store=self:BagTunerStore();local saved=store and store.fits[keyFor(bag,race,sex)]
-    if type(saved)=="table" and saved.schema==1 and saved.bag==bag and saved.race==race and saved.sex==sex and validValues(saved.values) then return saved end
+    if type(saved)=="table" and saved.schema==1 and saved.bag==bag and saved.race==race and saved.sex==sex and validValues(saved.values,bag) then return saved end
 end
 function V:BagTunerDefaults(bag,race,sex)
     if not self:BagTuningAvailable() or not validIdentity(bag,race,sex) then return nil end
@@ -73,7 +78,7 @@ function V:BagTunerDefaults(bag,race,sex)
     if self.bagTunerDefaults[key] then return self:Copy(self.bagTunerDefaults[key]) end
     local ok,status,left,inset,up,pitch,roll,yaw,scale=pcall(SaureksClosetGetBagFitDefaults,bag,race,sex,instance and self.bagMounts[instance.mount] or 0)
     local values={left=left,inset=inset,up=up,pitch=pitch,roll=roll,yaw=yaw,scale=scale}
-    if not ok or status~=1 or not validValues(values) then return nil end
+    if not ok or status~=1 or not validValues(values,bag) then return nil end
     self.bagTunerDefaults[key]=self:Copy(values);return values
 end
 function V:BagTunerIdentity()
@@ -157,8 +162,10 @@ function V:SetBagTunerValue(key,value)
     local state=self:GetBagTunerState();if not state.available then return false,state.status end
     local definition
     for _,field in ipairs(self.bagTunerFields) do if key==field.key then definition=field end end
-    if not definition or type(value)~="number" or not (value>=definition.min and value<=definition.max) then
-        return false,definition and ("Enter a number from "..definition.min.." to "..definition.max..".") or "Unknown fit control."
+    if not definition then return false,"Unknown fit control." end
+    local low,high=self:BagTunerFieldBounds(definition,state.bag)
+    if type(value)~="number" or not (value>=low and value<=high) then
+        return false,"Enter a number from "..low.." to "..high.."."
     end
     self.bagTunerDrafts[state.key][key]=value;self:SyncBagTuning();return true
 end

@@ -20,7 +20,20 @@ Motion uses a small local deformation rig. The upper rim and rear panel stay
 attached while the lower fabric responds to the chosen mounting point. Cloth
 gives more than canvas or leather. Moving a bag pauses its response until you
 release it; the new fit then prepares automatically. The original bounce and
-upward/outward jump lift accompany this local deformation. Offline jump/fall
+upward/outward jump lift accompany this local deformation. Each bag has its own
+stable timing, so multiple bags sway, bounce and lift at different points in the
+motion. The original jump lift is preserved, and world travel follows the player.
+The upper rear contact follows the nearby body part: a bag placed by a foot
+swings with that foot, while one at the hip follows the hip. Sway and jump lift
+pivot around that contact. Faster limb swings produce stronger back-and-forth
+rocking, with smaller bags remaining gentler. Placement values keep their
+existing meaning; support is selected automatically after you finish moving it.
+Smaller bags have gentler bobbing, sway and fabric movement. Size changes the
+amount of motion without reducing each bag’s timing offset. The mounting point
+follows immediately while the lower bag can swing and deform.
+When you stop moving, extra sway and fabric motion settle away; idle breathing
+does not keep the bags wobbling. Moving and jumping keep their normal response.
+Offline jump/fall
 clips remain disabled. The body guide does not detect
 cloaks or weapons; use the tuner to leave clearance around equipment.
 

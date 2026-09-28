@@ -35,6 +35,8 @@ for race=1,8 do for sex=0,1 do
     local value=V.bagTunerDrafts[state.key]
     for _,key in ipairs({"left","inset","up"}) do assert(value[key]>=-1 and value[key]<=1) end
     assert(value.yaw>=-180 and value.yaw<=180)
+    assert(V:MoveBagPlacement(0,-100000,272,math.pi/2))
+    assert(V.bagTunerDrafts[state.key].up==-3,"Dragging can reach the feet and still clamps below them")
     V:EndBagPlacementDrag()
 end end
 -- Replaced bag, mount, body or disabled wardrobe cannot inherit a gesture.

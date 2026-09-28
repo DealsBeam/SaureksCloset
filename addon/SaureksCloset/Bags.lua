@@ -39,7 +39,7 @@ end
 function V:ValidBagFit(values)
     if type(values)~="table" then return false end
     for i,key in ipairs(fitFields) do
-        local n=values[key];local low=i<=3 and -1 or (i<=6 and -180 or 25)
+        local n=values[key];local low=key=="up" and -3 or (i<=3 and -1 or (i<=6 and -180 or 25))
         local high=i<=3 and 1 or (i<=6 and 180 or 200)
         if type(n)~="number" or not (n>=low and n<=high) then return false end
     end

@@ -347,11 +347,27 @@ click(V.bagRows[4].iconButton)
 check(V.tab=="bags" and V.pagesByName.bags:IsVisible(),"Icon never switches to Outfit")
 check(tuner:IsShown() and V.placementTunerBag==targetID and not V.placementTunerSlot,"Icon opens only the chosen stable bag ID")
 check(tuner.pause.enabled,"Bag instance motion can be paused while fitting")
+local layoutGetState=V.GetBagTunerState
+V.GetBagTunerState=function(self)
+    local state=layoutGetState(self)
+    self.bagTunerDrafts=self.bagTunerDrafts or {}
+    self.bagTunerDrafts[state.key]=self.bagTunerDrafts[state.key] or {up=0,scale=100}
+    state.values=self:Copy(self.bagTunerDrafts[state.key]);return state
+end
+local upRow=tuner.rows[3];local upEditor=upRow.editor
+upEditor.editing=true;upEditor.targetKey=V:GetBagTunerState().key;upEditor:SetText("-2.25")
+check(V:CommitBagTunerEditor(upEditor),"Typed foot placement is accepted")
+click(upRow.minus)
+check(math.abs(V:GetBagTunerState().values.up+2.255)<.000001,"Nudging a foot fit stays at its height without snapping to the former limit")
 tuner:Hide();check(not V.bagRows[4].selected:IsShown(),"Closing the tuner clears the selected card")
 V:OpenPlacementTuner(101)
 check(V.placementTunerSlot==101 and not V.placementTunerBag,"Weapon tuner never inherits a bag target")
 check(not tuner.pause.enabled,"Weapon tuner still cannot pause bag motion")
 check(not tuner.modelSelector:IsVisible() and not tuner.mountSelector:IsVisible() and not tuner.colorChoices:IsVisible(),"Bag selectors stay hidden when tuning weapons")
+check(V:SetBagTunerValue("up",-1),"Weapon lower bound remains accepted")
+click(upRow.minus)
+check(V:GetBagTunerState().values.up==-1,"Weapon nudge retains its original lower bound")
+V.GetBagTunerState=layoutGetState
 V:OpenBagTuner(targetID)
 local targetRow
 for _,candidate in ipairs(V.bagRows) do if candidate.bagID==targetID then targetRow=candidate end end

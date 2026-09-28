@@ -280,4 +280,25 @@ assert(added and bag.id==1 and bag.slot==2 and table.getn(V:GetBags())==5 and no
 V:ClearAll()
 local bad={bags={{id=1,model=2,mount="bad",fits={["1:0"]={scale=0/0}}},{id=1,model=5},{id=9,model=7},{id=2,model=999}}}
 local clean=V:NormalizeBags(bad);assert(table.getn(clean)==1 and clean[1].mount=="back" and not next(clean[1].fits))
+-- A foot fit must survive typed edits, saved looks, normalization and reload.
+local added,footBag=V:AddBag(12,"rightHip");assert(added)
+V.placementTunerBag=footBag.id;V:InitializeBagTuning()
+assert(V:SetBagTunerValue("up",-2.25))
+assert(contexts[0][footBag.id].fits["1:0"].up==-2.25)
+assert(V:SaveBagTunerFit() and V:SaveOutfit("Foot placement"))
+assert(V:SetBagTunerValue("up",-.2))
+assert(V:LoadOutfit("Foot placement",true));V.placementTunerBag=footBag.id;V:InitializeBagTuning()
+assert(V:GetBagTunerState().values.up==-2.25)
+assert(contexts[0][footBag.id].fits["1:0"].up==-2.25)
+assert(V:SetBagTunerValue("up",-3) and V:SetBagTunerValue("up",1))
+for _,bad in ipairs({-3.00001,1.00001,1/0,0/0}) do assert(not V:SetBagTunerValue("up",bad)) end
+assert(not V:SetBagTunerValue("left",-1.01) and not V:SetBagTunerValue("inset",-1.01))
+local invalidFit=V:Copy(footBag.fits["1:0"]);invalidFit.up=-3.01
+assert(not V:ValidBagFit(invalidFit))
+-- Weapon controls retain their original range, including restored profiles.
+V.placementTunerBag=nil;V.placementTunerSlot=101
+assert(V:SetBagTunerValue("up",-1) and not V:SetBagTunerValue("up",-1.00001))
+local weaponFit=V:GetBagTunerState().values;weaponFit.up=-2.25
+V:BagTunerStore().fits["101:1:0"]={schema=1,bag=101,race=1,sex=0,values=weaponFit}
+assert(not V:BagTunerSaved(101,1,0))
 print("PASS: 11 active models, retired model migration, 5 stable visible bag slots, legacy/high-ID migration, fit isolation, saved looks, body profiles, preview/world separation, deletion/reuse, capacity, validation and retry")

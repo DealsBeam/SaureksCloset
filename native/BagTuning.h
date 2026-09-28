@@ -42,15 +42,16 @@ inline bool bagTuningDefaults(unsigned bag,unsigned race,unsigned sex,BagTuningV
         mount.inwardDegrees,mount.rightDegrees,0,85,true};
     return true;
 }
-inline bool bagTuningValid(const BagTuningValues& values) {
-    for(float offset:{values.left,values.inset,values.up})
+inline bool bagTuningValid(const BagTuningValues& values,bool bag=false) {
+    for(float offset:{values.left,values.inset})
         if(!std::isfinite(offset)||offset< -1||offset>1)return false;
+    if(!std::isfinite(values.up)||values.up<(bag?-3.f:-1.f)||values.up>1)return false;
     for(float angle:{values.pitch,values.roll,values.yaw})
         if(!std::isfinite(angle)||angle< -180||angle>180)return false;
     return std::isfinite(values.scale)&&values.scale>=25&&values.scale<=200;
 }
 inline bool bagTuningSet(unsigned bag,unsigned race,unsigned sex,bool enabled,const BagTuningValues& values={}) {
-    if(!bagTuningKey(bag,race,sex)||bag>=201||(enabled&&!bagTuningValid(values)))return false;
+    if(!bagTuningKey(bag,race,sex)||bag>=201||(enabled&&!bagTuningValid(values,bag==1)))return false;
     auto& entry=bag==1?bagTuningEntries[(race-1)*2+sex]:weaponTuningEntries[bag-101][(race-1)*2+sex];
     if(entry.enabled==enabled&&(!enabled||entry.values==values))return true;
     entry.enabled=enabled;

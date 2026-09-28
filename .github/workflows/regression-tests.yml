@@ -7,9 +7,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install test dependencies
-        run: sudo apt-get update && sudo apt-get install -y lua5.1 python3-pil python3-numpy
+        run: |
+          sudo apt-get update && sudo apt-get install -y lua5.1
+          python -m pip install -r tools/test-requirements.txt
       - name: Prepare bundled renderer verification
         run: cp 'addon/SaureksCloset/Installation instructions/SaureksCloset.dll' native/SaureksCloset.dll
       - name: Run release regression checks
-        run: /usr/bin/python3 tools/check_release.py
+        run: python tools/check_release.py
