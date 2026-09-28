@@ -1,10 +1,10 @@
 <div align="center">
 
-# Saurek's Closet - A damn fine 1.12 Transmog
+# Saurek's Closet - A Damn Fine 1.12 Transmog
 
-**Release 4.0.1 · Addon and DLL 4.0.1**
+**Release 4.0.2 · Addon and DLL 4.0.2**
 
-**World of Warcraft 1.12.1 · Build 5875**
+Supported on Linux, Windows, and Mac
 
 <a href="https://discord.gg/6mfxCdNbM6"><img src="https://invidget.switchblade.xyz/6mfxCdNbM6" alt="Join Saurek's Addons on Discord — online and total member counts" width="430" height="110"></a>
 
@@ -14,14 +14,17 @@
 
 ## Your character, your look
 
-Saurek's Closet morphs how your character looks on your own client. Your actual equipment, stats, and gameplay stay the same; other players do not see these appearance changes.
+Saurek's Closet morphs how your character looks on your own client, and for others with the addon. Your actual equipment, stats, and gameplay stay the same.
 
 - **Dress your character:** browse the item database, filter by quality and type, and preview an item before activating it.
 - **Choose what shows:** customize an armor slot, hide it, or pass through your real equipment.
 - **Customize your body:** change race, gender, skin, face, hair, and available features.
 - **Arrange your weaponry:** select appearances for both sides of the waist, both sides of the back, a shield, a ranged weapon, and a quiver. Or all at once!
 - **See your bags:** Equip and position your bags on your back and hips.
+- **Advanced physics:** Optionally enable modern pre-computed (baked) cape, bag, sheathed weapon physics with no runtime performance cost. Watch as jumping, running, falling, and combat motions realistically deform and swing your equipment on your character!
 - **Get dirty:** Sweat, dust, mud, and blood. It gets all over you, and you'll need to visit an inn, or take a dip to clean it off.
+- **Share your look with others:** If another player has the addon they can see your custom look (if you authorize broadcasting your transmog data)
+
 
 ## Take a look inside
 
@@ -31,7 +34,11 @@ Saurek's Closet morphs how your character looks on your own client. Your actual 
 
 ### Visible Bags with dynamic physics
 
-- Five fixed bag slots, six model choices, four Mageweave Bag colors, and three Slim Leather Bag colors. Choose a model by its icon, then tune its placement.
+- Five fixed bag slots, six model choices, four Mageweave Bag colors, and three Slim Leather Bag colors. Choose each bag by its icon, then tune it on the back or either hip.
+- Bags stay consistently sized for realism. A Runecloth bag on a gnome would take up their whole back, versus a Tauren that could comfortably fit 4 or more. In the bag precision tuner you can adjust their size if you want to.
+- Hard physics: Hard leather bags rock and bounce realistically, as if they had weight. Jumping/falling causes the bag to tilt and fly up in the air realistically.
+- Soft physics: cloth bags are simulated with different sized cubes jostling around inside the bags in Blender, using motion vectors extracted from all race and gender combos performing different animations. The resulting bag movements are recoded and baked into the game. This makes it appear as if advanced source engine style physics are utilized with no runtime cost.
+- Intelligent strap creation (Not shown in demo gifs) the addon computes a strap line from each bag to the players shoulder and draws it over the player texture in memory.
 
 <table>
 <tr>
@@ -41,10 +48,17 @@ Saurek's Closet morphs how your character looks on your own client. Your actual 
 <td width="50%">
 <img src="Screenshots/2.gif" alt="Bag motion demonstration 2" width="240">
 </td>
+<td width="50%">
+<img src="Screenshots/8.png" alt="Bag motion demonstration 2" width="240">
+</td>
 </tr>
 </table>
 
 ### Expanded weapon positioning, and fixes for Blizzard's 1.12 weapon sheathing bugs
+
+- Greatly expand your ability to choose where items are placed on the body. Put your fishing rod on your back with a weapon, and your skinning knife on your hip, all at once.
+
+- Or as a hunter see your bow and quiver at all times, even with your sword on your back, and adjust the position of the quiver.
 
 ![Wardrobe and searchable item appearance browser](Screenshots/5.png)
 
@@ -64,7 +78,7 @@ Saurek's Closet morphs how your character looks on your own client. Your actual 
 
 ### What you need
 
-- The supported **Windows 1.12.1 client, build 5875**. This is not an addon for modern WoW Classic or Retail.
+- The supported **Windows 1.12.1 client, build 5875**. This is not an addon for modern WoW Classic or Retail. Other clients may be possible to be support, open a Github issue.
 - **VanillaFixes** configured to launch your game.
 - **VanillaHelpers.dll** installed and enabled in `dlls.txt`.
 - Both parts of Saurek's Closet: the **`SaureksCloset` addon folder** and **`SaureksCloset.dll`** from the release download.
@@ -125,6 +139,11 @@ Several custom weapons can be displayed at once. When you draw weapons, matching
 
 Weaponry is still being refined. Some combinations may clip, and attachment positions cannot yet be adjusted manually. The **Bags** view is a placeholder; bag appearance customization is not available yet.
 
+### Can I get banned from a private server for using this?
+
+Probably not. Warden could in theory detect it, but I would think it's unlikely considering it only changes player object related properties.
+
+If you enable transmog broadcasting so other players with the addon can see your custom look: the server can see you are using Saurek's Closet.
 
 ## Licensing
 
@@ -148,3 +167,6 @@ permission from the copyright holder.
 Third-party assets, including assets derived from or owned by Blizzard
 Entertainment, remain subject to the rights of their respective owners.
 Permissions already granted under prior licenses remain unaffected.
+
+
+<img src="Screenshots/linux_nvidia_meme.png" alt="Linux Nvidia Meme" width="240">

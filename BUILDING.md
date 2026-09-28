@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.1
+# Building Saurek's Closet 4.0.2
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -123,3 +123,7 @@ Arrow tests exercise normal, hover, held, release, disabled and hide states,
 including failed/intermittent texture loading. Pixel checks render the shipped
 chevron with actual Lua-emitted geometry at six UI scales. These tests caught
 both the 3.9.1 compatibility-list omission and the old pressed-state offset.
+
+### Release 4.0.2
+
+Addon 4.0.2 and renderer 40002 include body-mounted bag contacts, independent sway, size-sensitive rocking, quiet idle settling and placement down to the feet. The full release gate covers attachment contacts, jump lift, frame rates and saved-fit limits. GitHub CI uses the pinned image encoder; README text is independent of release-version checks.
