@@ -135,7 +135,7 @@ If you enable transmog broadcasting so other players with the addon can see your
 
 ### Privacy Notes
 
-- Vanilla Closet has a "Check for updates" feature that queries this Github page to see if an update is available. This feature can be disabled in settings. It's able to do this while other addons cannot because it uses memory injection to take full control of the game client and escape Blizzard's addon jail.
+- Saurek's Closet has a "Check for updates" feature that queries this Github page to see if an update is available. This feature can be disabled in settings. It's able to do this while other addons cannot because it uses memory injection to take full control of the game client and escape Blizzard's addon jail.
 
 ## Notice to users of World of Warcraft addons in general
 
