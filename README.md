@@ -2,7 +2,9 @@
 
 # Saurek's Closet - A Damn Fine 1.12 Transmog
 
-**Release 4.0.4 · Addon and DLL 4.0.4**
+Saurek proudly presents:
+
+**· Release 4.0.4 ·**
 
 Supported on Linux, Windows, and Mac
 
