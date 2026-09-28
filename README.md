@@ -51,7 +51,7 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 <img src="Screenshots/2.gif" alt="Bag motion demonstration 2" width="240">
 </td>
 <td width="50%">
-<img src="Screenshots/8.png" alt="Bag motion demonstration 2" width="240">
+<img src="Screenshots/3.gif" alt="Bag motion demonstration 2" width="280">
 </td>
 </tr>
 </table>
