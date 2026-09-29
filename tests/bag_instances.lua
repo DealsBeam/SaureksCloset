@@ -301,4 +301,35 @@ assert(V:SetBagTunerValue("up",-1) and not V:SetBagTunerValue("up",-1.00001))
 local weaponFit=V:GetBagTunerState().values;weaponFit.up=-2.25
 V:BagTunerStore().fits["101:1:0"]={schema=1,bag=101,race=1,sex=0,values=weaponFit}
 assert(not V:BagTunerSaved(101,1,0))
+-- Visibility never removes bag choices, fits, draft edits, or saved looks.
+local before=V:BagSignature(c.weapons)
+local draftBefore=V:Copy(V.bagTunerDrafts)
+V.model={weaponToken=71};V.previewBuffer={weaponToken=72}
+assert(V:BagsShown())
+assert(V:SetBagsShown(false) and c.bagsHidden and not V:BagsShown())
+for _,token in ipairs({0,71,72}) do assert(not next(contexts[token])) end
+assert(V:ApplyWeaponRenderer(95,c.weapons) and not next(contexts[95]))
+assert(V:BagSignature(c.weapons)==before)
+assert(V:SetBagsShown(true) and not c.bagsHidden)
+for _,token in ipairs({0,71,72}) do assert(contexts[token][footBag.id]) end
+assert(V:BagSignature(c.weapons)==before)
+for key,value in pairs(draftBefore) do
+    for field,n in pairs(value) do assert(V.bagTunerDrafts[key][field]==n) end
+end
+assert(V:SetBagsShown(false));dofile("addon/SaureksCloset/Bags.lua")
+assert(not V:BagsShown(),"Visibility survives addon reload")
+assert(V:SetBagsShown(true))
+-- The addon sends independent stow bits, saves explicit false values, and
+-- stops requesting cosmetic stow behavior when the entire addon is disabled.
+version=40005;c.weapons.stowMain=false;c.weapons.stowOff=true;c.weapons.stowRanged=true
+V:SyncWeapons();assert(weaponCalls[0][23]==6)
+assert(V:SaveOutfit("Stowed choices",true))
+c.weapons.stowMain=true;c.weapons.stowRanged=false
+assert(V:LoadOutfit("Stowed choices",true))
+assert(c.weapons.stowMain==false and c.weapons.stowOff==true and c.weapons.stowRanged==true)
+assert(weaponCalls[0][23]==6)
+c.enabled=false;V:SyncWeapons();assert(weaponCalls[0][23]==nil)
+c.enabled=true;V.tab="body";assert(V:ApplyWeaponRenderer(71,c.weapons))
+assert(weaponCalls[71][23]==nil,"Body preview retains its all-weapons-hidden path")
+V.tab="bags"
 print("PASS: 11 active models, retired model migration, 5 stable visible bag slots, legacy/high-ID migration, fit isolation, saved looks, body profiles, preview/world separation, deletion/reuse, capacity, validation and retry")

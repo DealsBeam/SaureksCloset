@@ -1,8 +1,10 @@
 <div align="center">
 
-# Saurek's Closet - A Damn Fine 1.12 Transmog
+# Saurek's Closet - A Damn Fine WoW 1.12 Transmog
 
-**Release 4.0.4 · Addon and DLL 4.0.4**
+Saurek proudly presents:
+
+**· Release 4.0.4 · [Download now](https://github.com/mu-arch/SaureksCloset/releases/latest) ·**
 
 Supported on Linux, Windows, and Mac
 
@@ -49,7 +51,7 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 <img src="Screenshots/2.gif" alt="Bag motion demonstration 2" width="240">
 </td>
 <td width="50%">
-<img src="Screenshots/8.png" alt="Bag motion demonstration 2" width="240">
+<img src="Screenshots/3.gif" alt="Bag motion demonstration 2" width="280">
 </td>
 </tr>
 </table>
@@ -79,13 +81,9 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 ### What you need
 
 - The supported **Windows 1.12.1 client, build 5875**. This is not an addon for modern WoW Classic or Retail. Other clients may be possible to be support, open a Github issue.
-- **VanillaFixes** configured to launch your game.
+- **VanillaFixes** configured to launch your game. https://github.com/hannesmann/vanillafixes
 - **VanillaHelpers.dll** installed and enabled in `dlls.txt`.
 - Both parts of Saurek's Closet: the **`SaureksCloset` addon folder** and **`SaureksCloset.dll`** from the release download.
-
-### Privacy Notes
-
-- Vanilla Closet has a "Check for updates" feature that queries this Github page to see if an update is available. This feature can be disabled in settings. It's able to do this while other addons cannot because it uses memory injection to take full control of the game client and escape Blizzard's addon jail.
 
 ### Install the release
 
@@ -93,11 +91,13 @@ Saurek's Closet morphs how your character looks on your own client, and for othe
 
 2. Copy the `SaureksCloset` folder into `Interface/AddOns/`.
 
-3. Open the addon's **[Installation instructions](Installation%20instructions/)** folder. Copy the included `SaureksCloset.dll` into your main game folder, beside `WoW.exe`. The short [setup guide](Installation%20instructions/READ%20ME.txt) explains where to drag it.
+3. Open the addon's installation instructions folder. Copy the included `SaureksCloset.dll` into your main game folder, beside `WoW.exe`.
 
-4. Add `SaureksCloset.dll` to `dlls.txt`, after `VanillaHelpers.dll`. Keep any other DLL entries you already use.
+4. Make sure you have https://github.com/hannesmann/vanillafixes Vanilla Fixes installed.
 
-5. Launch through VanillaFixes, enable **Saurek's Closet** in the AddOns list, and log in.
+5. Add `SaureksCloset.dll` to `dlls.txt`, after `VanillaHelpers.dll`. Keep any other DLL entries you already use.
+
+6. Launch through VanillaFixes, enable **Saurek's Closet** in the AddOns list, and log in.
 
 Your installation should contain:
 
@@ -117,12 +117,6 @@ World of Warcraft/
 
 **Don't forget the DLL.** Copying only the addon folder is not a complete installation. A UI reload cannot load a new DLL; fully restart the game after replacing one.
 
-The full release also includes an optional Python 3 installer, which verifies the supported client and backs up the files it replaces:
-
-```powershell
-py -3 install.py "C:\Games\World of Warcraft"
-```
-
 ## Make your first look
 
 1. Click the minimap button or type **`/closet`**.
@@ -133,17 +127,33 @@ py -3 install.py "C:\Games\World of Warcraft"
 
 Open any saved look to preview, rename, delete, or activate it. The green eye marks the active look. Changes display as **Name (Edited)** until saved. **Save** is greyed out when there are no unsaved edits; rotating the preview does not count as an edit. Switching looks warns before discarding unsaved changes. The dropdown at the top of the window lets you switch saved looks quickly. Right-click the minimap button and choose **Toggle Addon** to turn local appearances on or off. Click and drag in either character preview to rotate the model.
 
-### How weapon placements work
-
-Several custom weapons can be displayed at once. When you draw weapons, matching appearances move into your hands according to the type of weapon actually equipped. A cosmetic gun stays stored if you don't have a gun equipped; unmatched placements and quivers also stay stored.
-
-Weaponry is still being refined. Some combinations may clip, and attachment positions cannot yet be adjusted manually. The **Bags** view is a placeholder; bag appearance customization is not available yet.
-
 ### Can I get banned from a private server for using this?
 
 Probably not. Warden could in theory detect it, but I would think it's unlikely considering it only changes player object related properties.
 
 If you enable transmog broadcasting so other players with the addon can see your custom look: the server can see you are using Saurek's Closet.
+
+### Privacy Notes
+
+- Saurek's Closet has a "Check for updates" feature that queries this Github page to see if an update is available. This feature can be disabled in settings. It's able to do this while other addons cannot because it uses memory injection to take full control of the game client and escape Blizzard's addon jail.
+
+## Notice to users of World of Warcraft addons in general
+
+I have personally seen people distributing viruses in the form of WoW addons.
+
+Be careful installing random addons, *especially* ones that utilize DLL injection, because their capabilities are not constrained in any way. DLL injection based programs can: access any file on your computer and store arbitrary data on your computer, transmit and receive data to any website or person, and execute any program or script on your computer.
+
+Saurek's Closet, of course, does not have any malicious functions, and the full source is available and can be verified as such. I simply like to make people aware that it isn't safe to just install anything willy nilly.
+
+NEVER DOWNLOAD SAUREK'S CLOSET FROM ANYWHERE BUT THIS OFFICIAL GITHUB PAGE
+
+## Special thanks
+
+- Ownedcore Community - for their years of research on 1.12 and generous sharing of offsets
+- Aeroscripts - for offering advice and years of friendship
+- Galo - for offering advice and years of friendship
+- Icescythe7 - for offering advice
+- Darklinux - for offering advice
 
 ## Licensing
 
@@ -170,3 +180,4 @@ Permissions already granted under prior licenses remain unaffected.
 
 
 <img src="Screenshots/linux_nvidia_meme.png" alt="Linux Nvidia Meme" width="240">
+<img src="Screenshots/logofx.png" alt="Linux Nvidia Meme" width="300">

@@ -1,4 +1,4 @@
-# Independent weapon placements — 4.0.4 / renderer 40004
+# Independent weapon placements — 4.0.6 / renderer 40006
 
 ## Implemented renderer
 
@@ -263,3 +263,34 @@ exact child clone identity, generation invalidation, and invalid argument
 atomicity. The simulator passes AddressSanitizer and UndefinedBehaviorSanitizer;
 the Windows i386 DLL builds with warnings as errors. In-game rendered appearance
 still requires a full client restart to load the rebuilt native DLL.
+
+## 4.0.5 hand-slot stowed visibility
+
+Main hand, off hand and ranged each have a stowed-visibility eye button in both
+Weaponry modes (also in the slot's right-click menu). Explicit choices survive
+mode changes and saved looks. Existing looks default to showing hand weapons
+in Simple mode and hiding them in Advanced mode, unless old hidden flags apply.
+Advanced carried models remain independent decoration; choosing to show a hand
+weapon never consumes or changes those placements.
+
+The optional 23rd SetWeapons argument is a three-bit visibility mask. Older
+callers retain their prior routing. Modern hand roles use stable sheath homes,
+including a back home for bows whose native sheath is absent; melee back homes
+avoid the quiver and ranged points. Visibility changes alpha and the bow-string
+draw without rebuilding children. Preview hand-role extras obey the same mask,
+while drawn weapons stay visible. Empty bag synchronization retains option-only
+weapon contexts. Disabling the addon restores native storage.
+
+The immediate ranged-to-unarmed transition now restores missing melee roles as
+well as ranged storage. Tests exercise successive NPC/loot interruptions with a
+missing two-handed child, all hand visibility masks, both modes, passthrough,
+custom appearances, shields, previews, decorations and idempotent updates.
+
+Stowed hand-role placement uses the same render corrections as existing carried
+weapons: bows retain their animated basis and use the authored center-back
+anchor; sheath-type-1 melee weapons use their animated sword transform at
+26/27 while keeping collision-free logical ownership at 30/31. The 4.0.5
+hand routes originally skipped those corrections, exposing the high raw
+attachment pose. The correction recognizes exact world native children and
+owned preview hand-role children, including equipped passthrough in the world.
+Unrelated decorations, staff fits, held weapons and saved tuning remain separate.

@@ -741,8 +741,13 @@ function V:LayoutWeaponCards(advanced)
         b.selected:SetWidth(size+6);b.selected:SetHeight(size+6)
         local usable,reason=self:WeaponSlotState(slot)
         local left=advanced and 43 or 57
-        card.title:ClearAllPoints();card.title:SetPoint("TOPLEFT",card,"TOPLEFT",left,advanced and -8 or (usable and -18 or -9))
-        card.title:SetWidth(width-left-4);card.title:SetFont("Fonts\\FRIZQT__.TTF",advanced and 11 or 13)
+        card.title:ClearAllPoints();card.title:SetPoint("TOPLEFT",card,"TOPLEFT",left,advanced and -3 or -9)
+        card.title:SetWidth(width-left-36);card.title:SetHeight(advanced and 12 or 14)
+        card.title:SetFont("Fonts\\FRIZQT__.TTF",advanced and 11 or 13)
+        card.stowedState:ClearAllPoints();card.stowedState:SetPoint("TOPLEFT",card,"TOPLEFT",left,advanced and -17 or -29)
+        card.stowedState:SetWidth(width-left-36);card.stowedState:SetHeight(advanced and 10 or 13)
+        card.stowedState:SetFont("Fonts\\FRIZQT__.TTF",advanced and 9 or 10)
+        if advanced or usable then card.stowedState:Show() else card.stowedState:Hide() end
         card.note:ClearAllPoints();card.note:SetPoint("TOPLEFT",card,"TOPLEFT",left,-29)
         card.note:SetWidth(width-left-4);card.note:SetText(reason or "")
         if not advanced and not usable then card.note:Show() else card.note:Hide() end
@@ -758,6 +763,14 @@ function V:RefreshWeaponCards()
         local usable=self:WeaponChoiceAvailable(slot)
         enabled(card,usable);enabled(self.slotButtons[slot],usable)
         card:SetAlpha(usable and 1 or .4)
+        if card.stowed then
+            local shown=self:WeaponStowedShown(slot,weapons)
+            card.stowed:SetNormalTexture(art..(shown and "VisibleSlot.tga" or "HiddenSlot.tga"))
+            card.stowedState:SetText(shown and "Stowed: shown" or "Stowed: hidden")
+            if shown then card.stowedState:SetTextColor(.85,.8,.65) else card.stowedState:SetTextColor(.65,.65,.65) end
+            enabled(card.stowed,usable and self:WeaponStowAvailable())
+            card.stowed:SetAlpha(self:WeaponStowAvailable() and 1 or .45)
+        end
         if card.gear then
             enabled(card.gear,usable);card.gear:SetAlpha(weapons[slot] and 1 or .4)
         end
@@ -803,6 +816,26 @@ function V:CreateWeaponryPage(p)
         if slot>=108 then
             card.note=label(card,"",57,29,257,13,true);card.note:SetFont("Fonts\\FRIZQT__.TTF",10)
             card.note:Hide()
+            card.stowedState=label(card,"",43,17,w-75,10,true)
+            local stowed=CreateFrame("Button","SaureksClosetWeaponStowed"..slot,card);card.stowed=stowed
+            stowed:SetPoint("RIGHT",card,"RIGHT",-8,0);stowed:SetWidth(19.2);stowed:SetHeight(19.2)
+            stowed:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Round","ADD")
+            local function stowedTooltip(owner)
+                local shown=V:WeaponStowedShown(slot,VanityStudioCharacter.weapons)
+                GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
+                GameTooltip:SetText(V.weaponNames[slot-100]..(shown and ": shown when stowed" or ": hidden when stowed"),1,.82,0)
+                GameTooltip:AddLine(shown and "Click to hide this weapon when put away." or "Click to keep this weapon on your body when put away.",1,1,1,true)
+                GameTooltip:AddLine("It still moves into your hand when drawn.",1,1,1,true)
+                GameTooltip:AddLine("Separate from Advanced mode's decorative body items.",.75,.75,.75,true)
+                if not V:WeaponStowAvailable() then GameTooltip:AddLine("Update the DLL and restart WoW to use this option.",1,.3,.3,true) end
+                GameTooltip:Show()
+            end
+            stowed:SetScript("OnClick",function()
+                if not this.closetEnabled then return end
+                if V:SetWeaponStowedShown(slot,not V:WeaponStowedShown(slot,VanityStudioCharacter.weapons)) then stowedTooltip(this) end
+            end)
+            stowed:SetScript("OnEnter",function() stowedTooltip(this) end)
+            stowed:SetScript("OnLeave",function() GameTooltip:Hide() end)
         else
             local cog=CreateFrame("Button",nil,b);card.gear=cog;cog.slot=slot
             cog:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",4,-3);cog:SetWidth(16);cog:SetHeight(16)
@@ -847,7 +880,7 @@ function V:CreateWeaponOptions(parent)
     checkbox:SetScript("OnEnter",function()
         GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Advanced mode",1,.82,0)
         GameTooltip:AddLine("Off: change your equipped main hand, off hand and ranged appearances. Weapons sheathe normally.",1,1,1,true)
-        GameTooltip:AddLine("On: choose hand appearances and carried body items independently. Carried items stay visible; hand weapons disappear when put away.",.75,.75,.75,true)
+        GameTooltip:AddLine("On: choose hand appearances and carried body items independently. Carried items stay visible. Use each hand slot's eye button to show or hide its weapon when put away.",.75,.75,.75,true)
         GameTooltip:AddLine("Switching modes keeps all your saved choices.",.75,.75,.75,true);GameTooltip:Show()
     end)
     checkbox:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -914,6 +947,21 @@ function V:CreateBagsPage(p)
         end)
         remove:SetScript("OnLeave",function() GameTooltip:Hide() end)
     end
+    local options=CreateFrame("Frame",nil,p);self.bagVisibilityOptions=options
+    options:SetPoint("TOPLEFT",p,"TOPLEFT",23,-366);options:SetWidth(318);options:SetHeight(22)
+    local caption=options:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    caption:SetHeight(22);caption:SetFont("Fonts\\FRIZQT__.TTF",11);caption:SetText("Show bags")
+    caption:SetPoint("CENTER",options,"CENTER",12,0)
+    caption:SetJustifyH("CENTER");caption:SetJustifyV("MIDDLE")
+    local checkbox=CreateFrame("CheckButton","SaureksClosetShowBags",options,"UICheckButtonTemplate")
+    self.bagVisibilityCheckbox=checkbox
+    checkbox:SetPoint("RIGHT",caption,"LEFT",-2,0);checkbox:SetWidth(22);checkbox:SetHeight(22)
+    checkbox:SetHitRectInsets(0,-(10+math.ceil(caption:GetWidth())),0,0)
+    checkbox:SetScript("OnClick",function() V:SetBagsShown(this:GetChecked()) end)
+    checkbox:SetScript("OnEnter",function()
+        bagTooltip(this,"Show bags","Show or hide your cosmetic bags without changing their models, colors or placements.")
+    end)
+    checkbox:SetScript("OnLeave",function() GameTooltip:Hide() end)
     self:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
 end
 function V:EditBag(id)
@@ -924,6 +972,9 @@ end
 function V:RefreshBagsPage()
     if not self.bagRows then return end
     local available=self:MultiBagRendererAvailable()
+    self.bagVisibilityCheckbox:SetChecked(self:BagsShown() and 1 or nil)
+    enabled(self.bagVisibilityCheckbox,available)
+    self.bagVisibilityCheckbox:SetAlpha(available and 1 or .45)
     self.bagNotice:SetText(not available and "Update SaureksCloset.dll and restart WoW." or self.bagError or "")
     for i,row in ipairs(self.bagRows) do
         local bag=self:BagInSlot(i)
@@ -997,6 +1048,10 @@ function V:OpenSlotMenu(slot)
             local selected=V:SlotSelection(selectedSlot)
             if V:IsWeaponPosition(selectedSlot) then
                 UIDropDownMenu_AddButton({text="Choose appearance",notCheckable=1,func=function() V:OpenBrowser(selectedSlot) end})
+                if selectedSlot>=108 then
+                    UIDropDownMenu_AddButton({text="Show when stowed",checked=V:WeaponStowedShown(selectedSlot,VanityStudioCharacter.weapons) and 1 or nil,
+                        disabled=not V:WeaponStowAvailable(),func=function() V:SetWeaponStowedShown(selectedSlot,not V:WeaponStowedShown(selectedSlot,VanityStudioCharacter.weapons)) end})
+                end
                 UIDropDownMenu_AddButton({text=selectedSlot>=108 and "Passthrough" or "Remove carried item",notCheckable=1,func=function() V:CloseBrowser();V:ClearSlot(selectedSlot) end})
                 return
             end

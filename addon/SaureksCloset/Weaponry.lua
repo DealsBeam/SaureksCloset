@@ -21,6 +21,30 @@ end
 function V:WeaponAdvancedMode(weapons)
     return self:CarriedWeaponsEnabled(weapons)
 end
+local stowFields={[108]="stowMain",[109]="stowOff",[110]="stowRanged"}
+function V:WeaponStowAvailable()
+    if type(SaureksClosetRendererVersion)~="function" then return false end
+    local ok,version=pcall(SaureksClosetRendererVersion)
+    return ok and type(version)=="number" and version>=40005
+end
+function V:WeaponStowedShown(slot,weapons)
+    local field=stowFields[slot];if not field then return false end
+    local w=weapons or {}
+    if type(w[field])=="boolean" then return w[field] end
+    return not self:WeaponAdvancedMode(w) and not w[slot==110 and "hideRangedWhenStored" or "hideMeleeWhenStored"]
+end
+function V:WeaponStowMask(weapons)
+    local mask=0
+    for i,slot in ipairs({108,109,110}) do if self:WeaponStowedShown(slot,weapons) then mask=mask+2^(i-1) end end
+    return mask
+end
+function V:SetWeaponStowedShown(slot,shown)
+    local field=stowFields[slot]
+    if not field or not self:WeaponStowAvailable() then return false end
+    local c=VanityStudioCharacter;c.weapons=c.weapons or {}
+    c.weapons[field]=shown and true or false
+    self:TrackUnsaved();self:SyncWeapons();self:Refresh();return true
+end
 function V:WeaponCompatible(id,slot)
     if not self:IsWeaponPosition(slot) then return false end
     if id==0 then return true end
@@ -41,6 +65,9 @@ function V:NormalizeWeapons(source)
     end
     for _,name in ipairs({"quiverHorizontal","hideRangedWhenStored","hideMeleeWhenStored"}) do
         if source and source[name]==true then result[name]=true end
+    end
+    for _,field in pairs(stowFields) do
+        if source and type(source[field])=="boolean" then result[field]=source[field] end
     end
     if self.NormalizeBags then
         result.bags=self:NormalizeBags(source)
@@ -270,7 +297,9 @@ function V:ApplyWeaponRenderer(token,weapons)
     if w.bags and table.getn(w.bags)>0 and not self:MultiBagRendererAvailable() then return false,-2 end
     local previewMode=0
     if token>0 and ((self.model and self.model.weaponToken==token) or (self.previewBuffer and self.previewBuffer.weaponToken==token)) then previewMode=self:WeaponPreviewMode() end
-    local ok,status=pcall(SaureksClosetSetWeapons,token,carried and w[101] or 0,carried and w[102] or 0,carried and w[103] or 0,carried and w[104] or 0,carried and w[105] or 0,carried and w[106] or 0,carried and w[107] or 0,real[1],real[2],real[3],w.quiverHorizontal and 1 or 0,0,0,actualQuiver,w.backBag or 0,w[108] or 0,w[109] or 0,w[110] or 0,w.independent and 1 or 0,previewMode,carried and 1 or 0)
+    local stowedMask
+    if self:WeaponStowAvailable() and not bodyPreview and (token>0 or VanityStudioCharacter.enabled) then stowedMask=self:WeaponStowMask(w) end
+    local ok,status=pcall(SaureksClosetSetWeapons,token,carried and w[101] or 0,carried and w[102] or 0,carried and w[103] or 0,carried and w[104] or 0,carried and w[105] or 0,carried and w[106] or 0,carried and w[107] or 0,real[1],real[2],real[3],w.quiverHorizontal and 1 or 0,0,0,actualQuiver,w.backBag or 0,w[108] or 0,w[109] or 0,w[110] or 0,w.independent and 1 or 0,previewMode,carried and 1 or 0,stowedMask)
     if not ok or status~=1 then return false,status end
     if self.ApplyBagRenderer then
         local live=token==0 or (self.model and self.model.weaponToken==token) or (self.previewBuffer and self.previewBuffer.weaponToken==token)
@@ -300,7 +329,7 @@ function V:PreviewWeapons()
 end
 function V:WeaponDisplaySignature(weapons)
     local w=weapons or {}
-    return ":q"..(w.quiverHorizontal and 1 or 0)..":carried"..(self:CarriedWeaponsEnabled(w) and 1 or 0)..":bag"..(w.backBag or 0)..":ind"..(w.independent and 1 or 0)..(self.BagSignature and self:BagSignature(w) or "")
+    return ":q"..(w.quiverHorizontal and 1 or 0)..":carried"..(self:CarriedWeaponsEnabled(w) and 1 or 0)..":bag"..(w.backBag or 0)..":ind"..(w.independent and 1 or 0)..":stow"..self:WeaponStowMask(w)..(self.BagSignature and self:BagSignature(w) or "")
 end
 function V:WeaponSignature(weapons,overrides,omitDisplayOptions)
     weapons=self:EffectiveWeapons(weapons,overrides)

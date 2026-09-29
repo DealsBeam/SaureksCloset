@@ -15,7 +15,7 @@ assert(V:BodyAvailable(),"The current release DLL must enable the Body page")
 local body=V:NativeBody()
 assert(body and body.race==1 and body.skin==2 and body.facial==6,"Current DLL must supply Body page values")
 assert(V:BodyDraft().hairColor==5,"Unmodified characters must populate the Body controls")
-for _,old in ipairs({30001,30400,30515,30711,30712,30713,30800,30901,40001,40002}) do
+for _,old in ipairs({30001,30400,30515,30711,30712,30713,30800,30901,40001,40002,40004,40005}) do
     version=old;assert(V:BodyAvailable(),"Previously audited renderers stay compatible")
 end
 for _,unsupported in ipairs({0,30701,30607,V.REQUIRED_RENDERER+1,"30901",false}) do

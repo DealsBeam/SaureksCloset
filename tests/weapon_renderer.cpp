@@ -274,6 +274,7 @@ static Lua request(unsigned token,const WeaponSelection& s,int quiverHorizontal=
         L.values[19]=s.independent?1:0;
         L.values.push_back(s.carriedMode);
     }
+    if(s.stowedMask>=0){L.values.resize(23,0);L.values[22]=s.stowedMask;}
     return L;
 }
 int main(){
@@ -586,6 +587,61 @@ int main(){
         auto invalid=request(0,s);invalid.values.push_back(flag);
         assert(setWeapons(&invalid)==-2&&!c->quiverHorizontal&&refs==angleRefs);
     }
+    // Per-hand stow visibility must use the same authored back pose as the
+    // older decorative slots. Exercise both real equipment and appearances;
+    // previews own their explicit hand-role children instead of native ones.
+    const auto assertModernStoredPose=[&](WeaponContext* context,void* child,unsigned role,
+        unsigned item,const std::array<float,16>& expected){
+        const auto saved=*context;
+        const auto childAddress=address(child);
+        const auto savedResource=memory[childAddress+0x30],savedLoaded=memory[childAddress+0x10];
+        const auto savedPoint=memory[childAddress+0x1D0];
+        const auto savedLocal=matrices[childAddress+0xBC];
+        auto local=identity;local[0]=local[5]=local[10]=.8f;
+        local[12]=.13f;local[13]=-.07f;local[14]=.09f;
+        matrices[childAddress+0xBC]=local;
+        const auto positioned=[&](){return role==2?positionStoredBow(child,attachment,shifted):positionStoredBackWeapon(child,shifted);};
+        const auto close=[](const std::array<float,16>& actual,const std::array<float,16>& wanted){
+            for(unsigned i=0;i<16;++i)assert(std::fabs(actual[i]-wanted[i])<.0001f);
+        };
+        for(int advanced:{0,1})for(bool appearance:{false,true}){
+            if(context->token&&!appearance)continue; // Native preview TryOn is not an owned extra.
+            context->selection={};context->selection.independent=true;
+            context->selection.carriedMode=advanced;context->selection.stowedMask=7;
+            const auto alternate=role==2?gun:weaponAsset(item)->kind==1?25u:35u;
+            context->selection.equipped[role]=appearance?alternate:item;
+            context->routes.fill(-1);context->extra.fill(nullptr);context->nativeChildren.fill(nullptr);
+            if(appearance){context->selection.items[7+role]=item;context->routes[role]=7+role;}
+            if(context->token)context->extra[7+role]=child;else context->nativeChildren[role]=child;
+            modelName(child,weaponAsset(item)->model);
+            memory[childAddress+0x1D0]=savedPoint;
+            assert(positioned());close(shifted,expected);
+            // Check the actual renderer submission, not only its routing
+            // decision. The child-local scale and offset are composed once.
+            captureAttachmentMatrix=true;
+            updateAttachmentForCaller(child,attachment,nullptr,nullptr,1.f,0x718761);
+            captureAttachmentMatrix=false;
+            close(capturedAttachmentMatrix,expected);
+            close(bagMatrixProduct(capturedAttachmentMatrix,local),bagMatrixProduct(expected,local));
+            assert(matrices[childAddress+0xBC]==local);
+            assert(memory[childAddress+0x1D0]==savedPoint);
+            memory[childAddress+0x1D0]=role==0?1:2;
+            assert(!positioned()); // Drawn weapons retain the hand pose.
+            updateAttachmentForCaller(child,attachment,nullptr,nullptr,1.f,0x718761);
+            assert(attachmentUpdate.matrix==attachment);
+            memory[childAddress+0x1D0]=savedPoint;
+            context->extra.fill(nullptr);context->nativeChildren.fill(nullptr);
+            assert(!positioned()); // A matching mesh at the same point is not enough.
+            if(context->token)context->extra[7+role]=child;else context->nativeChildren[role]=child;
+            modelName(child,weaponAsset(role==2?gun:35)->model);
+            assert(!positioned()); // Stale ownership cannot reposition a different mesh.
+            modelName(child,weaponAsset(item)->model);
+            context->selection.stowedMask=-1;
+            assert(!positioned()); // This test has no legacy decoration route.
+        }
+        *context=saved;memory[childAddress+0x30]=savedResource;memory[childAddress+0x10]=savedLoaded;
+        memory[childAddress+0x1D0]=savedPoint;matrices[childAddress+0xBC]=savedLocal;
+    };
     assert(!positionStoredBow(c->extra[5],attachment,shifted)); // gun unchanged
     c->selection.items[5]=2507;pc->selection.items[5]=2507;
     for(const auto& fixture:bowFixtures)for(auto context:{c,pc}){
@@ -614,6 +670,7 @@ int main(){
             const auto once=shifted;
             assert(positionStoredBow(context->extra[5],attachment,shifted)&&shifted==once);
             assert(matrices[0xA00000]==input&&matrices[boneAddress]==transform);
+            assertModernStoredPose(context,context->extra[5],2,2507,once);
         }
         memory[base+0x2000+2*28]=0xFFFF;
         assert(!positionStoredBow(context->extra[5],attachment,shifted));
@@ -665,6 +722,10 @@ int main(){
             const auto once=shifted;assert(positionStoredBackWeapon(child,shifted)&&shifted==once);
             assert(matrices[boneAddress]==transform); // do not alter parent skeleton
             assert(memory[address(child)+0x1D0]==weaponPoints[position]); // logical home unchanged
+            assertModernStoredPose(context,child,position-2,4939,once);
+            // One-handed weapons can also author a type-1 back sheath.
+            assert(weaponAsset(778)->kind==1&&weaponAsset(778)->sheath==1);
+            assertModernStoredPose(context,child,position-2,778,once);
         }
         memory[address(child)+0x1D0]=1;assert(!positionStoredBackWeapon(child,shifted));
         memory[address(child)+0x1D0]=weaponPoints[position];
@@ -2414,5 +2475,103 @@ int main(){
         weaponContexts=savedContexts;
         std::cout<<"PASS: real bag placement binds saved hip-to-foot fits, pins live skin contact and uses independent cloned skeletons\n";
     }
+    // Modern per-hand storage is independent of decorative carried items.
+    // Cover passthrough and explicit appearances, all visibility combinations,
+    // then the clear-only ranged -> NPC/loot transition with a missing 2H child.
+    for(int advanced:{0,1})for(bool appearance:{false,true}){
+        WeaponSelection clear;auto off=request(0,clear);assert(setWeapons(&off)==1);
+        realIDs[0]=35;realIDs[1]=0;realIDs[2]=2507;
+        assert(weaponAsset(35)->kind==2);
+        WeaponSelection selection;selection.independent=true;selection.carriedMode=advanced;selection.stowedMask=7;
+        selection.equipped={{35,0,2507}};
+        if(appearance){selection.items[7]=35;selection.items[9]=2507;}
+        if(advanced){selection.items[2]=35;selection.items[5]=2507;}
+        memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=0;
+        auto on=request(0,selection);assert(setWeapons(&on)==1);
+        auto* context=weaponContext(player.model);assert(context);
+        Lua noBags;noBags.values.resize(17,0);assert(setBags(&noBags)>0);
+        assert(weaponContext(player.model)==context&&context->selection.stowedMask==7);
+        const int mainHome=selectedWeaponHome(selection,0,context->routes[0]);
+        const int bowHome=selectedWeaponHome(selection,2,context->routes[2]);
+        assert(mainHome>=0&&bowHome==27);
+        const auto decoration=context->extra;
+        const auto baselineLoads=loads;
+        for(int mask=0;mask<8;++mask){
+            selection.stowedMask=mask;on=request(0,selection);assert(setWeapons(&on)==1);
+            auto main=findChildHook(pointer(player.model),nullptr,mainHome);
+            auto bow=findChildHook(pointer(player.model),nullptr,bowHome);
+            assert(main&&bow&&hideStoredWeapon(main)==!(mask&1)&&hideStoredWeapon(bow)==!(mask&4));
+            for(unsigned i=0;i<7;++i)if(decoration[i])assert(context->extra[i]==decoration[i]&&!hideStoredWeapon(decoration[i]));
+            const auto submissions=bowStringSubmission.calls;
+            bowStringDrawHook(bow,nullptr,pointer(player.unit));
+            assert(bowStringSubmission.calls==submissions+((mask&4)?1:0));
+        }
+        assert(loads==baselineLoads); // Visibility itself changes no weapon instances.
+        selection.stowedMask=7;on=request(0,selection);assert(setWeapons(&on)==1);
+        for(unsigned interruption=0;interruption<2;++interruption){
+            memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=2;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            auto held=findChildHook(pointer(player.model),nullptr,2);assert(held&&!hideStoredWeapon(held));
+            clearChildrenHook(pointer(player.model),nullptr,mainHome); // Lost during another animation/composition.
+            memory[player.unit+0xD3C]=2;memory[player.unit+0xD40]=0;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            auto main=findChildHook(pointer(player.model),nullptr,mainHome);
+            auto bow=findChildHook(pointer(player.model),nullptr,bowHome);
+            assert(main&&bow&&!hideStoredWeapon(main)&&!hideStoredWeapon(bow));
+            assert(weaponModelMatches(main,weaponAsset(35)->model));
+            const auto restoredLoads=loads;
+            memory[player.unit+0xD3C]=0;sheathTransitionHook(pointer(player.unit),nullptr);
+            assert(setWeapons(&on)==1&&loads==restoredLoads);
+            assert(context->extra==decoration);
+        }
+        if(!appearance){
+            realIDs[0]=25;selection.equipped[0]=25;on=request(0,selection);
+            assert(setWeapons(&on)==1);
+            const int newHome=selectedWeaponHome(selection,0,context->routes[0]);
+            auto main=findChildHook(pointer(player.model),nullptr,newHome);
+            assert(main&&weaponModelMatches(main,weaponAsset(25)->model)&&newHome!=mainHome);
+            assert(!findChildHook(pointer(player.model),nullptr,mainHome));
+            realIDs[0]=35;selection.equipped[0]=35;
+        }
+        // Ready previews show exactly one movable hand-role object plus decor.
+        memory[0x6000+0x10]=1;previews.entries[0]={};
+        previews.entries[0].model=0x6000;previews.entries[0].guid=player.guid;
+        previews.entries[0].token=77;previews.entries[0].status=1;
+        selection.items[7]=35;selection.items[9]=2507;
+        auto preview=request(77,selection);assert(setWeapons(&preview)==1);
+        auto* pc=weaponContext(0x6000);assert(pc&&pc->extra[7]&&pc->extra[9]);
+        assert(!hideStoredWeapon(pc->extra[7])&&!hideStoredWeapon(pc->extra[9]));
+        for(double invalidMask:{-1.,8.,1.5}){
+            auto invalid=preview;invalid.values[22]=invalidMask;assert(setWeapons(&invalid)==-2);
+        }
+        preview.values[22]=0;assert(setWeapons(&preview)==1);
+        assert(hideStoredWeapon(pc->extra[7])&&hideStoredWeapon(pc->extra[9]));
+        preview.values[20]=2;assert(setWeapons(&preview)==1);
+        assert(pc->extra[9]&&!hideStoredWeapon(pc->extra[9]));
+        forgetWeapons(0x6000);previews.entries[0]={};
+        assert(setWeapons(&off)==1);
+    }
+    for(int advanced:{0,1})for(unsigned offhand:{25u,143u}){
+        realIDs[0]=25;realIDs[1]=offhand;realIDs[2]=0;
+        WeaponSelection selection;selection.independent=true;selection.carriedMode=advanced;
+        selection.stowedMask=0;selection.equipped={{25,offhand,0}};
+        selection.items[7]=25;selection.items[8]=offhand;
+        memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=0;
+        auto on=request(0,selection);assert(setWeapons(&on)==1);
+        auto* context=weaponContext(player.model);assert(context);
+        for(int mask:{1,2,3,0}){
+            selection.stowedMask=mask;on=request(0,selection);assert(setWeapons(&on)==1);
+            for(unsigned role=0;role<2;++role){
+                auto child=findChildHook(pointer(player.model),nullptr,selectedWeaponHome(selection,role,context->routes[role]));
+                assert(child&&hideStoredWeapon(child)==!(mask&(1<<role)));
+            }
+        }
+        memory[player.unit+0xD40]=1;sheathTransitionHook(pointer(player.unit),nullptr);
+        auto main=findChildHook(pointer(player.model),nullptr,1);
+        auto offhandChild=findChildHook(pointer(player.model),nullptr,offhand==143?0:2);
+        assert(main&&offhandChild&&!hideStoredWeapon(main)&&!hideStoredWeapon(offhandChild));
+        WeaponSelection clear;auto off=request(0,clear);assert(setWeapons(&off)==1);
+    }
+    std::cout<<"PASS: per-hand stow options in both modes, passthrough bows, decorative isolation, bow strings, previews and missing two-hand recovery after ranged NPC/loot transitions\n";
     std::cout<<"PASS: native hook simulation, cross-family ranged drawing/sheathing, real metadata isolation, staff body contact and placement tuning\n";
 }

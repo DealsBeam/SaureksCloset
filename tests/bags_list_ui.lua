@@ -388,4 +388,16 @@ for _,candidate in ipairs(V.bagRows) do
     check(candidate:IsShown() and not candidate.choose.enabled and not candidate.remove.enabled,"Old renderer shows all five slots but cannot mutate bags")
 end
 check(syncs>0,"Bag interactions reached the real state change path")
+local visibility=V.bagVisibilityCheckbox
+check(visibility.checked==1,"Bags are shown by default")
+for _,index in ipairs({1,3,4,5}) do
+    check(V.bagVisibilityOptions.anchor[index]==V.weaponModeOptions.anchor[index],"Visibility aligns with Advanced mode")
+end
+check(V.bagVisibilityOptions.height==V.weaponModeOptions.height,"Matching footer height")
+check(not visibility.enabled,"Old renderer disables visibility toggle")
+SaureksClosetRendererVersion=function() return 40004 end;V:RefreshBagsPage()
+visibility:SetChecked(nil);click(visibility)
+check(not V:BagsShown() and not visibility.checked,"Checkbox hides bags")
+visibility:SetChecked(1);click(visibility)
+check(V:BagsShown() and visibility.checked==1,"Checkbox restores bags")
 print("PASS: "..checks.." bag list, integrated tuner, identity and geometry checks. Mocked frames, not an in-game visual test.")

@@ -31,9 +31,10 @@ struct WeaponSelection {
     bool independent=false;
     // -1 preserves the pre-3.7.3 bridge; 0 uses native storage, 1 replaces it.
     int carriedMode=-1;
+    int stowedMask=-1; // Optional per-hand visibility: main=1, off=2, ranged=4.
     std::array<unsigned,3> equipped{};
     bool empty()const{for(auto id:items)if(id)return false;return true;}
-    bool operator==(const WeaponSelection& b)const{return items==b.items&&equipped==b.equipped&&independent==b.independent&&carriedMode==b.carriedMode;}
+    bool operator==(const WeaponSelection& b)const{return items==b.items&&equipped==b.equipped&&independent==b.independent&&carriedMode==b.carriedMode&&(stowedMask>=0)==(b.stowedMask>=0);}
     bool valid()const{for(unsigned i=0;i<items.size();++i)if(items[i]&&!acceptsWeapon(i,weaponAsset(items[i])))return false;return true;}
     std::array<int,3> routes()const{
         std::array<int,3> routes{{-1,-1,-1}};std::array<bool,7> used{};

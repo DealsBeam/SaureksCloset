@@ -215,6 +215,18 @@ local function assertCard(slot)
         assert(labelY+labelH/2==y+h/2,"Carried role labels must be centered vertically")
     else
         assert(not card.gear,"In-use appearances do not have a carried placement")
+        local eye=assert(card.stowed,"Every equipped slot needs its own stowed-visibility eye")
+        assert(eye.kind=="Button" and eye.width==19.2 and eye.height==19.2,"Stowed visibility must use a readable eye button instead of a checkbox")
+        inContent(eye,"Stowed-visibility eye "..slot)
+        local eyeX,eyeY,eyeW,eyeH=rect(eye)
+        assert(math.abs(x+w-eyeX-eyeW-8)<.001,"The eye needs padding from the right edge")
+        assert(eyeY+eyeH/2==y+h/2,"Stowed-visibility eyes must be vertically centered in their rows")
+        assert(not overlaps(eye,card.title) and not overlaps(eye,b),"The eye overlaps the role title or item icon")
+        if card.stowedState:IsVisible() then
+            inContent(card.stowedState,"Stowed state "..slot)
+            assert(not overlaps(card.stowedState,card.title) and not overlaps(card.stowedState,eye) and not overlaps(card.stowedState,b),"The visible stowed-state caption overlaps another control")
+            assert(estimatedTextWidth(card.stowedState.text,card.stowedState.fontSize)<=card.stowedState:GetWidth(),"The stowed state is clipped")
+        end
     end
     return card,b,x,y,w,h
 end
@@ -384,6 +396,7 @@ end
 this=advancedToggle;this.scripts.OnEnter()
 assert(GameTooltip.title=="Advanced mode")
 assert(#GameTooltip.lines>=2,"The mode tooltip must explain both simple and advanced choices")
+assert(string.find(GameTooltip.lines[2],"eye button",1,true),"The mode tooltip must describe the visible eye control")
 print("PASS: tooltips preserve full item names and explain Advanced mode")
 
 -- Exercise the real setter and preview cancellation: switching modes may not
@@ -493,8 +506,8 @@ V.RefreshSlotHighlights=function() end
 local cleared
 V.ClearSlot=function(_,slot) cleared=slot end
 openSlotMenu(V,110)
-assert(menuEntries[2].text=="Passthrough","The attacking reset choice must be named Passthrough")
-menuEntries[2].func();assert(cleared==110,"Passthrough must clear the selected attacking appearance")
+assert(menuEntries[3].text=="Passthrough","The attacking reset choice must be named Passthrough")
+menuEntries[3].func();assert(cleared==110,"Passthrough must clear the selected attacking appearance")
 local ranged=saved[110];saved[110]=nil
 this=V.slotButtons[110];this.scripts.OnEnter()
 assert(GameTooltip.lines[1]=="Passthrough","An unset attacking icon needs the same Passthrough label")
@@ -557,3 +570,54 @@ for _,part in ipairs({"Left","Middle","Right"}) do
     assert(region.texture[1]=="Interface\\Buttons\\UI-Panel-Button-Up" and region.height==25)
 end
 print("PASS: native red button artwork ends at y=67 in both pressed and released states; header width and top edge are unchanged")
+
+SaureksClosetRendererVersion=function() return 40005 end
+for _,advanced in ipairs({false,true}) do
+    saved.carriedEnabled=advanced
+    V:RefreshWeaponCards()
+    for _,slot in ipairs({108,109,110}) do
+        assert(V:SetWeaponStowedShown(slot,false))
+        local card=V.weaponCards[slot];local eye=card.stowed
+        local others={}
+        for _,other in ipairs({108,109,110}) do if other~=slot then others[other]=V:WeaponStowedShown(other,saved) end end
+        assert(eye:IsVisible() and eye.enabled and card.stowedState:IsVisible())
+        assert(eye.normal=="Interface\\AddOns\\SaureksCloset\\Textures\\HiddenSlot.tga")
+        assert(card.stowedState.text=="Stowed: hidden","Hidden stowed weapons need a visible state description")
+        this=eye;this.scripts.OnEnter()
+        assert(GameTooltip.title==V.weaponNames[slot-100]..": hidden when stowed")
+        assert(GameTooltip.lines[1]=="Click to keep this weapon on your body when put away.")
+        assert(GameTooltip.lines[2]=="It still moves into your hand when drawn.")
+        assertCard(slot)
+        local priorSyncs,priorDirty=syncs,dirty
+        opened=nil;menu=nil
+        this=eye;this.scripts.OnClick()
+        assert(V:WeaponStowedShown(slot,saved) and syncs==priorSyncs+1 and dirty==priorDirty+1,"The eye must immediately save and apply this slot's visibility")
+        assert(not opened and not menu,"An eye click must not open the appearance picker")
+        assert(eye.normal=="Interface\\AddOns\\SaureksCloset\\Textures\\VisibleSlot.tga")
+        assert(card.stowedState.text=="Stowed: shown")
+        assert(GameTooltip.title==V.weaponNames[slot-100]..": shown when stowed","The hovered tooltip must refresh after an eye click")
+        assert(GameTooltip.lines[1]=="Click to hide this weapon when put away.")
+        assertCard(slot)
+        this=eye;this.scripts.OnClick()
+        assert(not V:WeaponStowedShown(slot,saved) and card.stowedState.text=="Stowed: hidden")
+        assert(eye.normal=="Interface\\AddOns\\SaureksCloset\\Textures\\HiddenSlot.tga")
+        for other,shown in pairs(others) do assert(V:WeaponStowedShown(other,saved)==shown,"Toggling one eye changed another equipped slot") end
+        assert(saved.carriedEnabled==advanced,"An eye click must not change the active mode")
+    end
+end
+assert(V:SetWeaponStowedShown(110,true))
+saved.carriedEnabled=false;assert(V:WeaponStowedShown(110,saved))
+saved.carriedEnabled=true;assert(V:WeaponStowedShown(110,saved))
+local clean=V:NormalizeWeapons(saved)
+assert(clean.stowMain==false and clean.stowOff==false and clean.stowRanged==true)
+assert(V:WeaponStowMask(clean)==4)
+SaureksClosetRendererVersion=function() return 40004 end
+V:RefreshWeaponCards()
+local priorSyncs,priorDirty=syncs,dirty
+this=V.weaponCards[110].stowed
+assert(not this.enabled and this.alpha==.45,"An older renderer must visibly disable the eye")
+this.scripts.OnEnter()
+assert(GameTooltip.lines[4]=="Update the DLL and restart WoW to use this option.")
+this.scripts.OnClick()
+assert(V:WeaponStowedShown(110,saved) and syncs==priorSyncs and dirty==priorDirty,"A disabled eye must not change the saved look")
+print("PASS: per-slot eyes show explicit states, toggle independently in both modes, preserve saved choices, and explain actions in tooltips")

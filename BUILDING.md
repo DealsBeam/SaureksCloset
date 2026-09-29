@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.4
+# Building Saurek's Closet 4.0.6
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -136,3 +136,10 @@ mount. Running bob uses 1.75x gain with size applied once. Only Mageweave bags
 stretch; every other model remains rigid, and the bag menu labels both types.
 The release gate includes emitted walking motion, frame-rate stability,
 independent phases, rigid geometry, jump response and idle settling.
+
+### Release 4.0.6 weapon regression checks
+
+Run the release gate for per-hand stowed visibility and two-handed recovery
+after ranged-to-unarmed NPC/loot transitions. `tests/weapon_renderer.cpp` covers
+world and preview routing; `tests/weapon_full_page.lua` and
+`tests/bag_instances.lua` cover controls, saved choices and bridge dispatch.

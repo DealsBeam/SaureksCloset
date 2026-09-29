@@ -5,6 +5,19 @@ V.MAX_BAGS=5
 -- The visible bag limit is independent of those stable attachment IDs.
 V.BAG_INSTANCE_SLOTS=8
 V.bagMounts={back=0,leftHip=1,rightHip=2}
+-- A character visibility preference, not a change to the saved look's bags.
+function V:BagsShown()
+    return not (VanityStudioCharacter and VanityStudioCharacter.bagsHidden)
+end
+function V:SetBagsShown(shown)
+    if not self:MultiBagRendererAvailable() then return false end
+    VanityStudioCharacter.bagsHidden=not shown and true or nil
+    self:SyncWeapons()
+    self:SyncLiveBagFits()
+    self.detailPreviewSignature=nil
+    self:Refresh()
+    return true
+end
 function V:BagBodyType(model)
     return type(model)=="number" and model>=12 and model<=16 and "Soft body" or "Rigid body"
 end
@@ -207,7 +220,7 @@ function V:BagSignature(weapons)
     return text
 end
 function V:ApplyBagRenderer(token,weapons,useDrafts)
-    local bags=self:NormalizeBags(weapons)
+    local bags=self:BagsShown() and self:NormalizeBags(weapons) or {}
     if not self:MultiBagRendererAvailable() then return table.getn(bags)==0,-2 end
     local byID,args={}, {token}
     for _,bag in ipairs(bags) do byID[bag.id]=bag end
