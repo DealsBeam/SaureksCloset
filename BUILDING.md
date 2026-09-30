@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.8
+# Building Saurek's Closet 4.0.9
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -157,3 +157,9 @@ The release gate covers per-slot wand stow visibility, draw/restow recovery,
 placement tuner input validation, and equipped weapon fits in previews.
 Before every publication, merge upstream edits, preserve the README and
 screenshots, and package them byte-for-byte.
+
+### Release 4.0.9
+
+Publishes the 4.0.8 behavior with the omitted tuner tooltip regression test
+included in the repository, so the GitHub release checks can run successfully.
+The 4.0.8 release tag remains intact.

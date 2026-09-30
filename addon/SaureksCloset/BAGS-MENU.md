@@ -66,7 +66,7 @@ Toggle Addon hides bags while retaining the arrangement; Reset All removes them.
 Bags are cosmetic attachments and do not change inventory slots, equipment
 icons, tooltips, capacity or stats.
 
-Version 4.0.8 uses renderer 40008 (DLL 4.0.8). Install the matching addon and DLL,
+Version 4.0.9 uses renderer 40009 (DLL 4.0.9). Install the matching addon and DLL,
 then fully restart the game. The /reload command cannot replace a loaded DLL.
 
 The centered **Show bags** checkbox above navigation hides or restores all
