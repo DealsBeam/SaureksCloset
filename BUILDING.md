@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.9
+# Building Saurek's Closet 4.0.10
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -163,3 +163,11 @@ screenshots, and package them byte-for-byte.
 Publishes the 4.0.8 behavior with the omitted tuner tooltip regression test
 included in the repository, so the GitHub release checks can run successfully.
 The 4.0.8 release tag remains intact.
+
+### Release 4.0.10
+
+Addon 4.0.10 and renderer 40010 include model-based mass for broad bags,
+clearer precision-tuner axis labels, and Settings donation links with the supplied
+Cash App QR code shown on request. The donation letter fits without scrolling,
+and the minimap tooltip displays the current addon version. The release gate
+covers bag mass, donation layout, browser allowlisting and copy-link fallbacks.
