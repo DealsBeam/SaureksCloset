@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.10
+# Building Saurek's Closet 4.0.11
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -171,3 +171,10 @@ clearer precision-tuner axis labels, and Settings donation links with the suppli
 Cash App QR code shown on request. The donation letter fits without scrolling,
 and the minimap tooltip displays the current addon version. The release gate
 covers bag mass, donation layout, browser allowlisting and copy-link fallbacks.
+
+### Release 4.0.11
+
+Addon 4.0.11 and renderer 40011 package the combined Settings donation button,
+the supplied transparent signature artwork, and the restored plain-text sign-off.
+Both donation links and the Cash App QR remain in the donation window. The release
+gate checks layout, browser actions, transparent artwork and its source checksum.
