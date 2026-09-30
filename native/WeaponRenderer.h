@@ -606,9 +606,9 @@ static int selectedWeaponHome(const WeaponSelection& selection,unsigned role,int
     if(selection.stowedMask>=0&&role<3){
         const auto* asset=weaponAsset(route>=0?selection.items[route]:selection.equipped[role]);
         if(!asset)return -1;
-        // Bows/guns/crossbows may use the back even without a stock sheath.
-        // Wands keep their native no-sheath behavior: drawn in hand, absent at rest.
-        if(asset->kind==4&&asset->subclass!=19)return 27;
+        // All ranged appearances, including wands, have a stowed back home.
+        // The per-slot visibility bit decides whether that model is shown.
+        if(asset->kind==4)return 27;
         const int home=sheathPointOriginal(asset->sheath,role==0);
         // Keep melee away from the native quiver and ranged attachment points.
         return home==26?30:home==27?31:home;
@@ -691,6 +691,7 @@ static void __fastcall bowStringDrawHook(void* model,void* renderState,void* uni
     // and the original callback runs again immediately when the bow is drawn.
     if(!hideStoredWeapon(model))bowStringDrawOriginal(model,renderState,unit);
 }
+static void* __fastcall findChildHook(void* parent,void*,unsigned point);
 static bool tuneStoredPlacement(void* child,const BagMatrix& base, std::array<float,16>& out){
     const auto model=reinterpret_cast<std::uintptr_t>(child);
     std::uintptr_t parent=0,resource=0,header=0,lookup=0,records=0;
@@ -712,10 +713,15 @@ static bool tuneStoredPlacement(void* child,const BagMatrix& base, std::array<fl
             const int route=c->routes[role];
             const auto* asset=weaponAsset(route>=0?c->selection.items[route]:c->selection.equipped[role]);
             if(!asset)continue;
-            const int home=selectedWeaponHome(c->selection,role,route);
+            // TryOn retains the real item's native sheath point in a preview;
+            // only world weapons and our own preview extras use routed homes.
+            const bool passthroughPreview=c->token&&route<0;
+            const unsigned side=role==0||(role==2&&(asset->inventory==25||asset->inventory==26));
+            const int home=passthroughPreview?sheathPointOriginal(asset->sheath,side):
+                selectedWeaponHome(c->selection,role,route);
             if(home<0||point!=static_cast<unsigned>(home))continue;
             const bool owned=c->token?(c->extra[7+role]==child||
-                (route<0&&findChildOriginal(reinterpret_cast<void*>(parent),point)==child)):
+                (passthroughPreview&&findChildHook(reinterpret_cast<void*>(parent),nullptr,point)==child)):
                 c->nativeChildren[role]==child;
             if(owned&&weaponModelMatches(child,asset->model)){
                 slot=7+role;break;

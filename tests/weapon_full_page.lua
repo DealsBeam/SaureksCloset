@@ -549,6 +549,17 @@ end
 UIParent=CreateFrame("Frame","UIParent");UIPanelWindows={}
 for _,key in ipairs({"SetMovable","SetClampedToScreen","RegisterForDrag"}) do methods[key]=function() end end
 PanelTemplates_TabResize=function(_,frame,width) frame:SetWidth(width) end
+-- The independent tuner must not outlive its source page's preview policy.
+local tunerOpen,tunerCloses=true,0
+V.bagTunerWindow={IsShown=function() return tunerOpen end,Hide=function() tunerOpen=false;tunerCloses=tunerCloses+1 end}
+V.tab="weaponry";V:SetTab("weaponry")
+assert(tunerOpen and tunerCloses==0,"Refreshing the current page closed the tuner")
+V:SetTab("body")
+assert(not tunerOpen and tunerCloses==1,"Body kept an equipment tuner whose preview hides equipment")
+tunerOpen=true;V:SetTab("not-a-page");assert(tunerOpen and tunerCloses==1)
+V:SetTab("bags");assert(not tunerOpen and tunerCloses==2)
+print("PASS: page changes close the floating tuner before switching preview policy")
+V.bagTunerWindow=nil;V:SetTab("weaponry")
 for _,name in ipairs({"CreateArmorPage","CreateBodyPage","CreateWeaponryPage","CreateBagsPage","CreateExposurePage","CreateOutfitPage","CreateSettingsPage","CreateBrowser","CreateOutfitDetails","CreateWardrobeSelector","SetTab"}) do
     V[name]=function() end
 end

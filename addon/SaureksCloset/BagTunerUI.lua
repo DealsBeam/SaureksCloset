@@ -368,12 +368,29 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         t:SetFont("Fonts\\FRIZQT__.TTF",14);t:SetJustifyH("CENTER");t:SetJustifyV("MIDDLE")
         b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight","ADD")
         b.field=field;b.direction=direction
+        b:SetScript("OnMouseDown",function() this.targetKey=V.bagTunerWindow.targetKey end)
         b:SetScript("OnClick",function()
-            local owner=this
-            for _,row in ipairs(V.bagTunerWindow.rows) do
-                if row.editor.editing then V:CommitBagTunerEditor(row.editor);row.editor:ClearFocus() end
-            end
+            local owner=this;local window=V.bagTunerWindow
+            local targetKey=owner.targetKey or window.targetKey;owner.targetKey=nil
             local state=V:GetBagTunerState()
+            if not state.available or state.key~=targetKey then
+                showMessage(state.available and "The placement changed. Click again for the current model." or state.status)
+                V:RefreshBagTunerUI();return
+            end
+            for _,row in ipairs(window.rows) do
+                if row.editor.editing then
+                    local accepted=V:CommitBagTunerEditor(row.editor);row.editor:ClearFocus()
+                    if not accepted then window.invalidInput=nil;return end
+                end
+            end
+            -- Focus may leave the editor before the button receives OnClick.
+            -- A rejected number must not fall through into a different change.
+            if window.invalidInput then window.invalidInput=nil;return end
+            state=V:GetBagTunerState()
+            if not state.available or state.key~=targetKey then
+                showMessage(state.available and "The placement changed. Click again for the current model." or state.status)
+                V:RefreshBagTunerUI();return
+            end
             local coarse=IsShiftKeyDown and IsShiftKeyDown() and 10 or 1
             local value=((state.values or {})[owner.field.key] or 0)+owner.field.step*owner.direction*coarse
             local low,high=V:BagTunerFieldBounds(owner.field,state.bag)
@@ -382,7 +399,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             if not ok then showMessage(err or "That value could not be applied.") end
             V:RefreshBagTunerUI()
         end)
-        tooltip(b,function() return fieldHelp(field).."\n\nClick to adjust by "..field.step..". Hold Shift for a larger step." end)
+        tooltip(b,function() return fieldHelp(this.field).."\n\nClick to adjust by "..this.field.step..". Hold Shift for a larger step." end)
         return b
     end
     for i,field in ipairs(self.bagTunerFields) do
@@ -407,7 +424,9 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         e:SetScript("OnEscapePressed",function()
             this.editing=nil;this.cancelCommit=true;this:ClearFocus();this.cancelCommit=nil;V:RefreshBagTunerUI()
         end)
-        tooltip(e,function() return fieldHelp(field) end)
+        -- Lua 5.0 reuses the generic-for variable; deferred handlers must
+        -- read the field stored on their widget after this loop has finished.
+        tooltip(e,function() return fieldHelp(this.field) end)
         local reset=section(row,247,0,53,22,true,"Button",.75)
         local resetText=label(reset,"Reset",0,1,53,20,true)
         resetText:SetFont("Fonts\\FRIZQT__.TTF",10);resetText:SetJustifyH("CENTER");resetText:SetJustifyV("MIDDLE")

@@ -267,6 +267,9 @@ end
 function V:SetTab(tab)
     if tab=="character" then tab=self.wardrobePage or "armor" end
     if not self.pagesByName or not self.pagesByName[tab] then return end
+    -- The floating tuner belongs to the page that opened it. In particular,
+    -- Body previews deliberately hide equipment and cannot host bag fitting.
+    if tab~=self.tab and self.bagTunerWindow and self.bagTunerWindow:IsShown() then self.bagTunerWindow:Hide() end
     if self.CloseBagPlacementEditor then self:CloseBagPlacementEditor() end
     local wasCharacter=self.pagesByName.armor:IsVisible()
     if tab~="weaponry" then self:CloseWeaponOptions() end
