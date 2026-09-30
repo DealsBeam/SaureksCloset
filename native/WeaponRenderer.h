@@ -606,7 +606,9 @@ static int selectedWeaponHome(const WeaponSelection& selection,unsigned role,int
     if(selection.stowedMask>=0&&role<3){
         const auto* asset=weaponAsset(route>=0?selection.items[route]:selection.equipped[role]);
         if(!asset)return -1;
-        if(asset->kind==4)return 27; // Bows with no stock sheath still have a back home.
+        // Bows/guns/crossbows may use the back even without a stock sheath.
+        // Wands keep their native no-sheath behavior: drawn in hand, absent at rest.
+        if(asset->kind==4&&asset->subclass!=19)return 27;
         const int home=sheathPointOriginal(asset->sheath,role==0);
         // Keep melee away from the native quiver and ranged attachment points.
         return home==26?30:home==27?31:home;
@@ -701,6 +703,24 @@ static bool tuneStoredPlacement(void* child,const BagMatrix& base, std::array<fl
         if(c->extra[i]==child)slot=i;
         else if(!c->token&&findChildOriginal(reinterpret_cast<void*>(parent),point)==child)
             for(auto route:c->routes)if(route==static_cast<int>(i))slot=i;
+    }
+    // Equipped-slot fits apply only while stored. Drawing always uses the
+    // untouched native hand transform, including native rotation and size.
+    if(point<=2)return false;
+    if(c->selection.stowedMask>=0){
+        for(unsigned role=0;role<3;++role){
+            const int route=c->routes[role];
+            const auto* asset=weaponAsset(route>=0?c->selection.items[route]:c->selection.equipped[role]);
+            if(!asset)continue;
+            const int home=selectedWeaponHome(c->selection,role,route);
+            if(home<0||point!=static_cast<unsigned>(home))continue;
+            const bool owned=c->token?(c->extra[7+role]==child||
+                (route<0&&findChildOriginal(reinterpret_cast<void*>(parent),point)==child)):
+                c->nativeChildren[role]==child;
+            if(owned&&weaponModelMatches(child,asset->model)){
+                slot=7+role;break;
+            }
+        }
     }
     if(slot<0)return false;
     BagMatrix back,torso,local,render;

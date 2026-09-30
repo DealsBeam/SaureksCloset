@@ -226,7 +226,7 @@ function V:RefreshPreview()
         if self.tab=="body" then self:FrameBodyPreview(target) end
         target:SetAlpha(1)
         self.previewSignature=signature;self.previewDressSignature=reveal.dressSignature;self.previewError=nil;self.previewReveal=nil;self.previewDressAt=nil;self.previewDressingModel=nil
-        self.previewNote:SetText(next(self.previewWaiting or {}) and "Some item data is unavailable." or "")
+        self.previewNote:SetText("")
         return
     end
     if signature==self.previewSignature and not self.previewDressingModel and not self.previewReveal then return end
@@ -244,6 +244,8 @@ function V:RefreshPreview()
     local ok=pcall(function()
         -- Reuse the finished clone for item previews; do not recreate it per item.
         target:Undress()
+        -- Missing item information is normal during loading. Track it for
+        -- silent retries and diagnostics, never as a preview warning.
         V.previewWaiting={}
         for _,slot in ipairs(V.slotOrder) do
             local id=items[slot]
@@ -277,7 +279,6 @@ function V:RefreshPreview()
     if ok then self.previewSignature=signature;self.previewDressSignature=dressSignature;self.previewError=nil;self:RefreshPortraits()
     else self.previewError="Preview unavailable. Close and reopen the wardrobe." end
     if self.previewError then self.previewNote:SetText(self.previewError)
-    elseif next(self.previewWaiting or {}) then self.previewNote:SetText("Some item data is unavailable.\nThe preview may be incomplete.")
     else self.previewNote:SetText("") end
 end
 function V:UpdatePreviewLoading()

@@ -1,8 +1,8 @@
 #pragma once
 #include "BagCoordinates.h"
 #include "BagTuning.h"
-// Apply a fresh stored-attachment adjustment. No accumulating matrices or
-// changes to the character's bones, held weapons or gameplay equipment.
+// Apply a fresh attachment adjustment. No accumulating matrices or
+// changes to the character's bones or gameplay equipment.
 inline bool placementTuning(const BagMatrix& attachment,const BagMatrix& local,
                             const BagMatrix& torso,const BagMatrix& modelToRender,
                             const BagTuningValues& v,BagMatrix& out){

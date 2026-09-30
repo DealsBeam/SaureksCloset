@@ -1,8 +1,8 @@
--- Saurek's Closet. Lua 5.0 / original WoW 1.12.1. GPL-3.0-or-later.
+-- Saurek's Closet. Lua 5.0 / original WoW 1.12.1. PolyForm-Noncommercial-1.0.0; see LICENSING.md.
 VanityStudio = { index = {}, slots = {}, applied = {}, pending = {}, errors = {} }
 local V = VanityStudio
 -- Read from reloaded code; client addon metadata can retain the startup version.
-V.VERSION = "4.0.6"
+V.VERSION = "4.0.7"
 V.UNSAVED = {} -- Runtime key; the single draft itself lives in character saved variables.
 V.slotOrder = {1,3,15,4,5,19,9,10,6,7,8,16,17,18}
 V.slotNames = {[1]="Head",[3]="Shoulders",[4]="Shirt",[5]="Chest",[6]="Waist",[7]="Legs",[8]="Feet",[9]="Wrists",[10]="Hands",[15]="Back",[16]="Main hand",[17]="Off hand",[18]="Ranged",[19]="Tabard"}

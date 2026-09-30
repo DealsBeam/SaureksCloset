@@ -1,6 +1,6 @@
 # Native renderer sources and build
 
-Bridge source: GPL-3.0-or-later. MinHook v1.3.4 is vendored under its own license in `vendor/minhook/LICENSE.txt`. [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.html).
+Original bridge source: PolyForm-Noncommercial-1.0.0; see ../LICENSING.md for scope and third-party exclusions. MinHook v1.3.4 is vendored under its own license in `vendor/minhook/LICENSE.txt`. [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
 
 Primary references: [VanillaHelpers](https://github.com/isfir/VanillaHelpers) for Lua/API declarations and local object access; [1.12.1 client-internals research](https://github.com/samwhosung/wow-1121-client-internals/blob/main/docs/character-model.md) for initial character-component investigation; [WoWDBDefs](https://github.com/wowdev/WoWDBDefs) for DBC schemas. Function prototypes and call sites were checked against the user's exact executable. The new render hooks are documented in RESEARCH.md.
 

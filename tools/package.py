@@ -28,7 +28,9 @@ for icon in re.findall(r'icon="([^"]+)"', (addon / 'BagCatalog.lua').read_text()
     name = icon.rsplit('\\', 1)[-1]
     assert name in {e['texture'] for e in artwork}, 'Unlisted bag icon: ' + name
     assert (addon / 'Textures' / name).is_file(), 'Missing bag icon: ' + name
-assert (addon / 'LICENSE').read_bytes() == (root / 'LICENSE').read_bytes()
+for license_copy in [addon / 'LICENSE', root / 'native/LICENSE', addon / 'Installation instructions/LICENSE.txt']:
+    assert license_copy.read_bytes() == (root / 'LICENSE').read_bytes()
+assert (addon / 'LICENSING.md').read_bytes() == (root / 'LICENSING.md').read_bytes()
 assert (addon / 'ASSETS-LICENSE').read_bytes() == (root / 'ASSETS-LICENSE').read_bytes()
 bags = json.loads((root / 'native/BAG-ASSETS.json').read_text())
 assert bags['schema'] == 2
@@ -61,7 +63,7 @@ for p in addon.rglob('*'):
     if include:
         payload['SaureksCloset/' + relative.as_posix()] = p
 assert 'SaureksCloset/README.md' in payload
-for name in ['LICENSE', 'ASSETS-LICENSE', 'Textures/ASSETS-LICENSE', 'Screenshots/ASSETS-LICENSE']:
+for name in ['LICENSE', 'LICENSING.md', 'Installation instructions/LICENSE.txt', 'Installation instructions/MINHOOK-LICENSE.txt', 'CATALOG-LICENSE.md', 'CATALOG-COPYRIGHT.md', 'ASSETS-LICENSE', 'Textures/ASSETS-LICENSE', 'Screenshots/ASSETS-LICENSE']:
     assert 'SaureksCloset/' + name in payload
 for line in (addon / 'SaureksCloset.toc').read_text().splitlines():
     if line.strip() and not line.startswith('#'):

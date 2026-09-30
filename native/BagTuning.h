@@ -16,10 +16,10 @@ struct BagTuningValues {
 };
 struct BagTuningEntry { bool enabled=false; unsigned revision=0; BagTuningValues values; };
 inline std::array<BagTuningEntry,16> bagTuningEntries{};
-inline std::array<std::array<BagTuningEntry,16>,7> weaponTuningEntries{};
+inline std::array<std::array<BagTuningEntry,16>,10> weaponTuningEntries{};
 inline std::uint64_t bagTuningOwner=0;
 inline bool bagTuningKey(unsigned bag,unsigned race,unsigned sex) {
-    return (bag==1||(bag>=101&&bag<=107)||(bag>=201&&bag<=208))&&race>=1&&race<=8&&sex<=1;
+    return (bag==1||(bag>=101&&bag<=110)||(bag>=201&&bag<=208))&&race>=1&&race<=8&&sex<=1;
 }
 inline bool bagInstanceTuningDefaults(unsigned mount,unsigned race,unsigned sex,BagTuningValues& out) {
     if(mount>2||race<1||race>8||sex>1)return false;

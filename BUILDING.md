@@ -1,4 +1,4 @@
-# Building Saurek's Closet 4.0.6
+# Building Saurek's Closet 4.0.7
 
 The Lua addon is in `addon/SaureksCloset/`. The native renderer uses C++17 and MinHook; generated headers and build signatures are included.
 
@@ -39,7 +39,7 @@ See `native/RESEARCH.md` and `native/WEAPONRY.md` for renderer boundaries.
 
 ## Licenses
 
-See `LICENSE` for the project license, `native/vendor/minhook/LICENSE.txt` for MinHook, and the catalog notices in the addon directory. Game executables, extracted Blizzard UI, game models, personal settings, and diagnostic captures are not included.
+See `LICENSE` for PolyForm Noncommercial 1.0.0 and `LICENSING.md` for its scope and preserved third-party terms, `native/vendor/minhook/LICENSE.txt` for MinHook, and the catalog notices in the addon directory. Game executables, extracted Blizzard UI, game models, personal settings, and diagnostic captures are not included.
 
 Optional data-regeneration tools require local client files: set `WOW_EXE` to the supported executable and `WOW_DATA` to its Data directory. Archive readers additionally require a local StormLib build at the path shown in `tools/read_client_data.py`. These tools are not required to build the DLL from the supplied headers.
 
@@ -143,3 +143,10 @@ Run the release gate for per-hand stowed visibility and two-handed recovery
 after ranged-to-unarmed NPC/loot transitions. `tests/weapon_renderer.cpp` covers
 world and preview routing; `tests/weapon_full_page.lua` and
 `tests/bag_instances.lua` cover controls, saved choices and bridge dispatch.
+
+### Release 4.0.7
+
+The release gate covers stowed placement tuning for all three equipped weapon
+slots in both modes, restoration of native position/rotation/size when drawn,
+hand-only wands, and silent item loading in both preview windows. Original
+project code uses PolyForm Noncommercial 1.0.0; see LICENSING.md for scope.

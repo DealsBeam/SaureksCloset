@@ -2551,6 +2551,124 @@ int main(){
         forgetWeapons(0x6000);previews.entries[0]={};
         assert(setWeapons(&off)==1);
     }
+    // Wands have no stowed body model. The bow back-home exception must not
+    // apply to them, whether real equipment or a cross-family appearance.
+    for(const auto& asset:weaponAssets)if(asset.kind==4&&asset.subclass==19){
+        assert(asset.sheath==0); // Native no-sheath fallback is valid for every wand.
+        WeaponSelection s;s.stowedMask=7;s.equipped[2]=asset.item;
+        assert(selectedWeaponHome(s,2,-1)==-1);
+        s.items[9]=asset.item;assert(selectedWeaponHome(s,2,9)==-1);
+    }
+    for(int advanced:{0,1})for(unsigned actual:rangedKinds)for(bool appearance:{false,true}){
+        if(!appearance&&actual!=rangedKinds[3])continue;
+        WeaponSelection clear;auto off=request(0,clear);assert(setWeapons(&off)==1);
+        realIDs[0]=35;realIDs[1]=0;realIDs[2]=actual;
+        WeaponSelection s;s.independent=true;s.carriedMode=advanced;s.stowedMask=7;
+        s.equipped={{35,0,actual}};if(appearance)s.items[9]=rangedKinds[3];
+        if(advanced)s.items[5]=rangedKinds[0]; // Explicit back decoration stays independent.
+        memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=0;
+        auto on=request(0,s);assert(setWeapons(&on)==1);
+        auto* c=weaponContext(player.model);assert(c&&!c->nativeChildren[2]);
+        const auto decoration=c->extra[5];
+        for(int mask:{7,3}){
+            s.stowedMask=mask;on=request(0,s);assert(setWeapons(&on)==1);
+            for(unsigned point=26;point<=33;++point){
+                auto child=findChildHook(pointer(player.model),nullptr,point);
+                assert(!child||!weaponModelMatches(child,weaponAsset(rangedKinds[3])->model));
+            }
+            memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=2;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            auto held=findChildHook(pointer(player.model),nullptr,1);
+            assert(held&&weaponModelMatches(held,weaponAsset(rangedKinds[3])->model)&&!hideStoredWeapon(held));
+            // NPC/loot transition must recover melee without creating a back wand.
+            const int mainHome=selectedWeaponHome(s,0,c->routes[0]);
+            clearChildrenHook(pointer(player.model),nullptr,mainHome);
+            memory[player.unit+0xD3C]=2;memory[player.unit+0xD40]=0;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            assert(findChildHook(pointer(player.model),nullptr,mainHome));
+            assert(!findChildHook(pointer(player.model),nullptr,1));
+            assert(!findChildHook(pointer(player.model),nullptr,27));
+            assert(c->extra[5]==decoration);
+        }
+        memory[0x6000+0x10]=1;previews.entries[0]={};
+        previews.entries[0].model=0x6000;previews.entries[0].guid=player.guid;
+        previews.entries[0].token=77;previews.entries[0].status=1;
+        s.items[9]=rangedKinds[3];auto preview=request(77,s);
+        assert(setWeapons(&preview)==1);auto* pc=weaponContext(0x6000);
+        assert(pc&&!pc->extra[9]);
+        preview.values[20]=2;assert(setWeapons(&preview)==1);
+        assert(pc->extra[9]&&!hideStoredWeapon(pc->extra[9]));
+        preview.values[20]=0;assert(setWeapons(&preview)==1);assert(!pc->extra[9]);
+        forgetWeapons(0x6000);previews.entries[0]={};assert(setWeapons(&off)==1);
+    }
+    std::cout<<"PASS: wands remain hand-only in both modes, all ranged appearance families, stow settings, previews and NPC/loot transitions\n";
+    // Equipped-role tuning affects stowed placement only; drawing restores native transforms.
+    for(int advanced:{0,1})for(bool appearance:{false,true})for(unsigned rangedItem:rangedKinds){
+        realIDs[0]=25;realIDs[1]=143;realIDs[2]=rangedItem;
+        WeaponSelection s;s.independent=true;s.carriedMode=advanced;s.stowedMask=7;
+        s.equipped={{25,143,rangedItem}};
+        if(appearance){s.items[7]=25;s.items[8]=143;s.items[9]=rangedItem;}
+        memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=0;
+        auto on=request(0,s);assert(setWeapons(&on)==1);
+        auto* ctx=weaponContext(player.model);assert(ctx);
+        for(unsigned role=0;role<3;++role){
+            memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=role==2?2:1;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            const auto* a=weaponAsset(s.equipped[role]);
+            const unsigned hand=role==0?1:role==1?0:(a->inventory==25||a->inventory==26?1:2);
+            auto drawn=findChildHook(pointer(player.model),nullptr,hand);assert(drawn);
+            memory[player.unit+0xD3C]=role==2?2:1;memory[player.unit+0xD40]=0;
+            sheathTransitionHook(pointer(player.unit),nullptr);
+            const int home=selectedWeaponHome(s,role,ctx->routes[role]);
+            auto child=home>=0?findChildHook(pointer(player.model),nullptr,home):nullptr;
+            if(home<0){assert(role==2&&a->subclass==19);continue;}
+            assert(child);
+            for(const auto& fixture:bowFixtures){
+                setBack(ctx,fixture);
+                BagTuningValues v;v.scale=125;v.left=.1f;v.yaw=35;
+                assert(bagTuningSet(108+role,fixture.race,fixture.sex,true,v));
+                BagMatrix result,expected;assert(tuneStoredPlacement(child,identity,result));
+                assert(placementTuning(identity,matrices[address(child)+0xBC],identity,identity,v,expected));
+                for(unsigned axis=0;axis<16;++axis)assert(std::fabs(result[axis]-expected[axis])<.00001f);
+                // Actual draw/stow transition with the fit still enabled.
+                memory[player.unit+0xD3C]=0;memory[player.unit+0xD40]=role==2?2:1;
+                sheathTransitionHook(pointer(player.unit),nullptr);
+                drawn=findChildHook(pointer(player.model),nullptr,hand);assert(drawn);
+                assert(!tuneStoredPlacement(drawn,identity,result));
+                memory[player.unit+0xD3C]=role==2?2:1;memory[player.unit+0xD40]=0;
+                sheathTransitionHook(pointer(player.unit),nullptr);
+                child=findChildHook(pointer(player.model),nullptr,home);assert(child);
+                assert(tuneStoredPlacement(child,identity,result));
+                assert(bagTuningSet(108+role,fixture.race,fixture.sex,false));
+                assert(!tuneStoredPlacement(child,identity,result));
+            }
+        }
+        WeaponSelection clear;auto off=request(0,clear);assert(setWeapons(&off)==1);
+    }
+    for(int advanced:{0,1}){
+        WeaponSelection s;s.independent=true;s.carriedMode=advanced;s.stowedMask=7;
+        s.equipped={{25,143,2507}};s.items[7]=25;s.items[8]=143;s.items[9]=2507;
+        memory[0x6000+0x10]=1;previews.entries[0]={};
+        previews.entries[0].model=0x6000;previews.entries[0].guid=player.guid;
+        previews.entries[0].token=77;previews.entries[0].status=1;
+        for(unsigned role=0;role<3;++role){
+            auto preview=request(77,s);preview.values[20]=0;
+            assert(setWeapons(&preview)==1);auto* ctx=weaponContext(0x6000);
+            auto child=ctx->extra[7+role];assert(child);
+            const auto& fixture=bowFixtures[0];setBack(ctx,fixture);
+            BagTuningValues v;v.scale=120;v.yaw=25;
+            assert(bagTuningSet(108+role,fixture.race,fixture.sex,true,v));
+            BagMatrix result,expected;
+            assert(tuneStoredPlacement(child,identity,result));
+            assert(placementTuning(identity,matrices[address(child)+0xBC],identity,identity,v,expected));
+            for(unsigned axis=0;axis<16;++axis)assert(std::fabs(result[axis]-expected[axis])<.00001f);
+            preview.values[20]=role==2?2:1;assert(setWeapons(&preview)==1);
+            assert(!tuneStoredPlacement(ctx->extra[7+role],identity,result));
+            assert(bagTuningSet(108+role,fixture.race,fixture.sex,false));
+        }
+        forgetWeapons(0x6000);previews.entries[0]={};
+    }
+    std::cout<<"PASS: stowed main/off/ranged fits restore native drawn transforms, all bodies, both modes, previews and passthrough\n";
     for(int advanced:{0,1})for(unsigned offhand:{25u,143u}){
         realIDs[0]=25;realIDs[1]=offhand;realIDs[2]=0;
         WeaponSelection selection;selection.independent=true;selection.carriedMode=advanced;

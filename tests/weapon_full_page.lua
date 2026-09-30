@@ -122,6 +122,7 @@ V.Refresh=function(self) refreshes=refreshes+1;self:RefreshWeaponCards() end
 V.SyncWeapons=function() end
 V.TrackUnsaved=function() end
 V.Message=function(self,text) self.lastMessage=text end
+V.HeldWeaponTuningAvailable=function() return true end
 V:SetTab("weaponry")
 for _,model in ipairs({V.model,V.previewBuffer}) do
     assert(model.modelScale==nil and model.position==nil,"Non-Body pages must not reset the native model framing")
@@ -214,7 +215,9 @@ local function assertCard(slot)
         local _,labelY,_,labelH=rect(title)
         assert(labelY+labelH/2==y+h/2,"Carried role labels must be centered vertically")
     else
-        assert(not card.gear,"In-use appearances do not have a carried placement")
+        assert(card.gear and card.gear:IsVisible(),"Held weapons need placement cogs")
+        inContent(card.gear,"Held placement cog "..slot)
+        assert(not overlaps(card.gear,card.stowed),"Cog overlaps the stowed eye")
         local eye=assert(card.stowed,"Every equipped slot needs its own stowed-visibility eye")
         assert(eye.kind=="Button" and eye.width==19.2 and eye.height==19.2,"Stowed visibility must use a readable eye button instead of a checkbox")
         inContent(eye,"Stowed-visibility eye "..slot)
@@ -288,6 +291,8 @@ for slot=101,110 do
         this=V.weaponCards[slot].gear;this.scripts.OnClick();assert(tuned==slot)
         VanityStudioCharacter.weapons[slot]=nil
         opened=nil;this.scripts.OnClick();assert(opened==slot,"Empty placement cog must open item selection")
+    else
+        this=V.weaponCards[slot].gear;this.scripts.OnClick();assert(tuned==slot,"Passthrough held weapons need tuning too")
     end
 end
 local sx,sy,sw,sh=rect(V.wardrobeSelectorBox)

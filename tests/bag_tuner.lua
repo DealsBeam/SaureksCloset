@@ -121,3 +121,31 @@ for key,values in pairs(draftsBefore) do
 end
 V.bagTunerWindow=nil;V.MultiBagRendererAvailable=nil
 print("PASS: bag tuner live dispatch, fit identity, validation, defaults, pause, persistence, individual field reset/load, retries and JSON export")
+
+-- Hand fits use separate persisted keys and support equipped passthrough.
+version=40006
+local oldDefaults=SaureksClosetGetBagFitDefaults
+SaureksClosetGetBagFitDefaults=function(bag,race,sex)
+    if bag==1 then return oldDefaults(bag,race,sex) end
+    if bag>=101 and bag<=110 then return 1,0,0,0,0,0,0,100 end
+    return -2
+end
+V.slotNames={[108]="Main hand",[109]="Off hand",[110]="Ranged"}
+VanityStudioCharacter.enabled=true
+assert(V:HeldWeaponTuningAvailable())
+for slot=108,110 do
+    V.placementTunerSlot=slot
+    local state=V:GetBagTunerState();assert(state.available and state.values.scale==100)
+    assert(V:SetBagTunerValue("left",.025*(slot-107)))
+    assert(V:SaveBagTunerFit())
+    local saved=V:BagTunerSaved(slot,state.race,state.sex)
+    assert(saved.values.left==.025*(slot-107))
+    V:InitializeBagTuning()
+    assert(native[state.key].left==saved.values.left)
+end
+SaureksClosetGetBagFitDefaults=function(bag,race,sex)
+    if bag>=108 then return -2 end
+    return 1,0,0,0,0,0,0,100
+end
+assert(not V:HeldWeaponTuningAvailable() and not V:GetBagTunerState().available)
+print("PASS: held weapon fit persistence, per-slot isolation, passthrough and older DLL gating")

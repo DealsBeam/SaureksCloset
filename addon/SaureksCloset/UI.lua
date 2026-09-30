@@ -772,7 +772,8 @@ function V:RefreshWeaponCards()
             card.stowed:SetAlpha(self:WeaponStowAvailable() and 1 or .45)
         end
         if card.gear then
-            enabled(card.gear,usable);card.gear:SetAlpha(weapons[slot] and 1 or .4)
+            local tunable=usable and (slot<108 or self:HeldWeaponTuningAvailable())
+            enabled(card.gear,tunable);card.gear:SetAlpha(tunable and (slot>=108 or weapons[slot]) and 1 or .4)
         end
     end
     self.weaponAdvancedCheckbox:SetChecked(advanced and 1 or nil)
@@ -836,7 +837,8 @@ function V:CreateWeaponryPage(p)
             end)
             stowed:SetScript("OnEnter",function() stowedTooltip(this) end)
             stowed:SetScript("OnLeave",function() GameTooltip:Hide() end)
-        else
+        end
+        do
             local cog=CreateFrame("Button",nil,b);card.gear=cog;cog.slot=slot
             cog:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",4,-3);cog:SetWidth(16);cog:SetHeight(16)
             cog:SetFrameLevel(b:GetFrameLevel()+3)
@@ -844,12 +846,15 @@ function V:CreateWeaponryPage(p)
             cog:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Round","ADD")
             cog:SetScript("OnClick",function()
                 if not V:WeaponChoiceAvailable(this.slot) then return end
-                if not V:SlotSelection(this.slot) then V:OpenBrowser(this.slot);return end
+                if this.slot>=108 and not V:HeldWeaponTuningAvailable() then return end
+                if this.slot<108 and not V:SlotSelection(this.slot) then V:OpenBrowser(this.slot);return end
                 V:CloseBrowser();V:OpenPlacementTuner(this.slot)
             end)
             cog:SetScript("OnEnter",function()
-                GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Edit placement",1,.82,0)
-                GameTooltip:AddLine(V:SlotSelection(this.slot) and "Position, rotation and scale." or "Choose an item first.",1,1,1);GameTooltip:Show()
+                GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(this.slot>=108 and "Edit stowed position" or "Edit placement",1,.82,0)
+                GameTooltip:AddLine(this.slot>=108 and "Adjust position, rotation and size while stowed on your body. Drawing restores the normal hand placement." or V:SlotSelection(this.slot) and "Position, rotation and scale." or "Choose an item first.",1,1,1,true)
+                if this.slot>=108 and not V:HeldWeaponTuningAvailable() then GameTooltip:AddLine("Update the DLL and restart WoW to tune stowed weapons.",1,.3,.3,true) end
+                GameTooltip:Show()
             end)
             cog:SetScript("OnLeave",function() GameTooltip:Hide() end)
         end

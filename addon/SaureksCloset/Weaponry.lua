@@ -273,6 +273,9 @@ function V:EffectiveWeapons(weapons,overrides)
 end
 function V:WeaponPreviewMode()
     if self.tab=="body" then return 0 end
+    if self.bagTunerWindow and self.bagTunerWindow:IsShown() and self.placementTunerSlot and self.placementTunerSlot>=108 then
+        return 0
+    end
     if self.draft and self.draft.slot==110 then return 2 end
     if self.draft and (self.draft.slot==108 or self.draft.slot==109) then return 1 end
     return self.weaponPreviewMode or 0

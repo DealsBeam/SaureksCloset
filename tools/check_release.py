@@ -6,9 +6,9 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 lua_tests = [
-    'body_renderer_version', 'body_arrow_loading', 'body_preview_equipment',
+    'body_renderer_version', 'body_arrow_loading', 'body_preview_equipment', 'preview_item_loading',
     'bags_list_ui', 'bag_instances', 'bag_tuner', 'wardrobe_save', 'preview_drag',
-    'weapon_full_page', 'updates', 'armor_recovery', 'bag_placement_editor',
+    'weapon_full_page', 'held_weapon_tuner', 'updates', 'armor_recovery', 'bag_placement_editor',
 ]
 for name in lua_tests:
     subprocess.run(['lua5.1', f'tests/{name}.lua'], cwd=root, check=True)

@@ -3,7 +3,7 @@ local V=VanityStudio
 local function tooltip(widget,text)
     widget:SetScript("OnEnter",function()
         GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:ClearLines()
-        GameTooltip:AddLine(text,1,1,1,true);GameTooltip:Show()
+        GameTooltip:AddLine(type(text)=="function" and text() or text,1,1,1,true);GameTooltip:Show()
     end)
     widget:SetScript("OnLeave",function() GameTooltip:Hide() end)
 end
@@ -11,6 +11,12 @@ local function showMessage(text)
     if not V.bagTunerWindow then return end
     V.bagTunerWindow.message=text
     V.bagTunerWindow.messageTime=4
+end
+local function fieldHelp(field)
+    if V.placementTunerSlot and V.placementTunerSlot>=108 then
+        return field.label..": adjust the stowed weapon on your body. Drawing restores its normal position, rotation and size in the hand."
+    end
+    return field.help
 end
 local function displayValue(field,value)
     return string.format("%."..(field.decimals or 2).."f",value or 0)
@@ -173,6 +179,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         this.invalidInput=nil;this.invalidEditor=nil;this.resetHover=nil
         this.emptySlot=nil
         V:SetBagTunerPaused(false)
+        if V.placementTunerSlot and V.placementTunerSlot>=108 then V:RefreshPreview() end
         if V.RefreshBagsPage then V:RefreshBagsPage() end
     end)
     f:SetScript("OnUpdate",function()
@@ -375,7 +382,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
             if not ok then showMessage(err or "That value could not be applied.") end
             V:RefreshBagTunerUI()
         end)
-        tooltip(b,field.help.."\n\nClick to adjust by "..field.step..". Hold Shift for a larger step.")
+        tooltip(b,function() return fieldHelp(field).."\n\nClick to adjust by "..field.step..". Hold Shift for a larger step." end)
         return b
     end
     for i,field in ipairs(self.bagTunerFields) do
@@ -400,7 +407,7 @@ function V:CreateBagTunerUI(sheet,section,label,edit,settingsButton,enabled)
         e:SetScript("OnEscapePressed",function()
             this.editing=nil;this.cancelCommit=true;this:ClearFocus();this.cancelCommit=nil;V:RefreshBagTunerUI()
         end)
-        tooltip(e,field.help)
+        tooltip(e,function() return fieldHelp(field) end)
         local reset=section(row,247,0,53,22,true,"Button",.75)
         local resetText=label(reset,"Reset",0,1,53,20,true)
         resetText:SetFont("Fonts\\FRIZQT__.TTF",10);resetText:SetJustifyH("CENTER");resetText:SetJustifyV("MIDDLE")
@@ -500,7 +507,8 @@ function V:OpenBagTuner(instanceID)
     if self.RefreshBagsPage then self:RefreshBagsPage() end
 end
 function V:OpenPlacementTuner(slot)
-    if not self:IsCarriedWeapon(slot) then return end
+    if not self:IsWeaponPosition(slot) then return end
+    if slot>=108 and not self:HeldWeaponTuningAvailable() then return end
     if not self.frame then self:Toggle(true) end
     if not self.bagTunerWindow then return end
     if self.bagTunerWindow:IsShown() then self.bagTunerWindow:Hide() end
@@ -508,6 +516,7 @@ function V:OpenPlacementTuner(slot)
     self.placementTunerSlot=slot;self.placementTunerBag=nil
     self.bagTunerWindow.message=nil;self.bagTunerWindow.messageTime=nil
     self.bagTunerWindow:Show();self:RefreshBagTunerUI()
+    if slot>=108 then self:RefreshPreview() end
 end
 function V:OpenBagTunerExport()
     if not self.bagTunerWindow then return end

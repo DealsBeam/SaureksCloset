@@ -35,6 +35,7 @@ function V:OutfitPreviewItems(look)
     return items
 end
 function V:DressOutfitPreview(target,look)
+    -- Pending items load silently; retain their IDs for retries and diagnostics.
     target:Undress();self.detailMissing={}
     local routes=self:PreviewWeaponRoutes(look.weapons,look.slots)
     for slot,id in pairs(self:OutfitPreviewItems(look)) do
@@ -80,7 +81,7 @@ function V:UpdateOutfitPreview()
             target:SetAlpha(1);self.detailPending=nil
             self.detailPreviewSignature=pending.signature;self.detailPreviewBodyKey=pending.bodyKey
             self.detailPreviewLook=pending.look;self.detailItemRetries=0;self.detailRetryAt=GetTime()+2
-            self.detailPreviewNote:SetText(next(self.detailMissing) and "Some item data is still loading." or "")
+            self.detailPreviewNote:SetText("")
             return
         end
         local ok,status=true,1
@@ -107,6 +108,5 @@ function V:UpdateOutfitPreview()
                 if GetItemInfo(id) then self.detailMissing[id]=nil else self:RequestItem(id) end
             end
         end
-        self.detailPreviewNote:SetText(next(self.detailMissing) and "Some item data is unavailable." or "")
     end
 end
