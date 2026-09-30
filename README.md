@@ -159,25 +159,22 @@ NEVER DOWNLOAD SAUREK'S CLOSET FROM ANYWHERE BUT THIS OFFICIAL GITHUB PAGE
 
 ### Source Code
 
-Unless otherwise stated, the source code in this repository is licensed under
-the GNU General Public License v3.0. See [LICENSE](LICENSE).
+Unless otherwise stated, original source code in this repository is licensed
+under the **PolyForm Noncommercial License 1.0.0**, which does not grant permission
+for commercial use. See [LICENSE](LICENSE) for the full terms and
+[LICENSING.md](LICENSING.md) for scope and third-party exceptions.
 
 ### Artwork and Assets
 
 Original artwork, textures, graphics, interface artwork, icons, images, audio,
-and other creative assets included with Saurek's Closet are proprietary,
-separately licensed, and are not covered by the GPLv3. See
+and other creative assets included with Saurek's Closet are proprietary and
+separately licensed. They are not covered by the source code license. See
 [ASSETS-LICENSE](ASSETS-LICENSE).
 
-Apart from installation, use with Saurek's Closet, personal backups, and other
+Except for installation, use with Saurek's Closet, personal backups, and other
 permissions described in that license, these assets may not be extracted,
-copied, modified, redistributed, or used in another project without explicit
-permission from the copyright holder.
-
-Third-party assets, including assets derived from or owned by Blizzard
-Entertainment, remain subject to the rights of their respective owners.
-Permissions already granted under prior licenses remain unaffected.
-
+copied, modified, redistributed, sold, or used in another project without
+explicit permission from the copyright holder.
 
 <img src="Screenshots/linux_nvidia_meme.png" alt="Linux Nvidia Meme" width="240">
 <img src="Screenshots/logofx.png" alt="Linux Nvidia Meme" width="300">
