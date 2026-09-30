@@ -98,7 +98,7 @@ end
 V:CreateSettingsPage(settings)
 check(table.getn(opened)==0,"Constructing Settings must never launch a browser")
 check(not V.settingsInfoWindow:IsShown(),"Information window starts closed")
-local expectedMessage="World of Warcraft has always been more than just a game to me—it’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n\n"..
+local expectedMessage="World of Warcraft has always been more than just a game to me. It’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n\n"..
     "While donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n\n"..
     "Sharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\n\nYours,\nSaurek"
 check(V.donationTitle and V.donationTitle.kind=="FontString" and V.donationTitle.text=="Thanks for using my addon!","The greeting is a separate title")
