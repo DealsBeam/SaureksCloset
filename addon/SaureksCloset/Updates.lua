@@ -6,7 +6,8 @@ local function rememberVersionCheck()
     local checked=type(time)=="function" and time() or nil
     if type(checked)=="number" and checked>0 then VanityStudioDB.lastVersionCheck=checked end
 end
-V.websiteURLs={"https://github.com/mu-arch/SaureksCloset","https://github.com/mu-arch/SaureksCloset/releases","https://discord.gg/6mfxCdNbM6"}
+V.websiteURLs={"https://github.com/mu-arch/SaureksCloset","https://github.com/mu-arch/SaureksCloset/releases","https://discord.gg/6mfxCdNbM6",
+    "https://ko-fi.com/comfysystems","https://cash.app/$saurek"}
 function V:VersionParts(version)
     local _,_,major,minor,patch=string.find(version or "","^(%d+)%.(%d+)%.(%d+)$")
     major=tonumber(major);minor=tonumber(minor);patch=tonumber(patch)

@@ -49,9 +49,12 @@ operation can finish or time out on the worker after cancellation; its result is
 discarded and no further fetch is started for that generation. The UI also has
 a 30-second wait limit. The worker never reads or mutates game models or calls Lua.
 
-Website buttons open only three compiled, allowlisted HTTPS URLs: the project,
-its releases page, and the existing support Discord invite. Opening a site requires
-a button click; it is never triggered by an update response.
+Website buttons open only five compiled, allowlisted HTTPS URLs: the project,
+its releases page, the existing support Discord invite, Ko-fi at
+`https://ko-fi.com/comfysystems`, and Cash App at `https://cash.app/$saurek`.
+The existing page IDs 1–3 remain unchanged; donation buttons use IDs 4 and 5.
+Only exact numeric page IDs are accepted. Opening a site requires a button
+click; it is never triggered by an update response or by visiting Settings.
 
 Reference: Microsoft WinHTTP concurrency rules:
 https://learn.microsoft.com/en-us/windows/win32/winhttp/concurrency-in-winhttp

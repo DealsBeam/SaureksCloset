@@ -77,9 +77,27 @@ V:CheckForUpdates(true);remote={2,3,4,"invalid",30433,0};now=106;V:UpdateUpdates
 assert(string.find(V.updateStatus,"Could not",1,true))
 V:CheckForUpdates(true);remote={1};now=137;V:UpdateUpdates()
 assert(not V.updatePolling and enabled and string.find(V.updateStatus,"timed out",1,true))
-local opened
-SaureksClosetOpenWebsite=function(page) opened=page;return 1 end
-assert(V:OpenWebsite(2) and opened==2 and not V:OpenWebsite(9))
+local opened={}
+local expectedURLs={"https://github.com/mu-arch/SaureksCloset","https://github.com/mu-arch/SaureksCloset/releases","https://discord.gg/6mfxCdNbM6",
+    "https://ko-fi.com/comfysystems","https://cash.app/$saurek"}
+V.websiteAddress=statusLabel()
+SaureksClosetOpenWebsite=function(page) table.insert(opened,page);return 1 end
+for page,url in ipairs(expectedURLs) do
+    assert(V.websiteURLs[page]==url,"Website mapping changed unexpectedly")
+    assert(V:OpenWebsite(page) and opened[page]==page and V.websiteAddress.text==url,"Explicit website action must retain the requested destination")
+end
+for _,page in ipairs({0,-1,6,9,4.5,"4","https://example.com",false,{}}) do
+    assert(not V:OpenWebsite(page),"Arbitrary website inputs must be rejected")
+end
+assert(not V:OpenWebsite(nil) and table.getn(opened)==5,"Invalid IDs never reach the native browser opener")
+for page,url in ipairs(expectedURLs) do
+    SaureksClosetOpenWebsite=nil
+    assert(not V:OpenWebsite(page) and V.websiteAddress.text==url and messages[table.getn(messages)]=="Open this address in your browser: "..url,"Missing DLL provides the exact copyable address")
+    SaureksClosetOpenWebsite=function() return 0 end
+    assert(not V:OpenWebsite(page) and V.websiteAddress.text==url,"Native failure preserves the selected address")
+    SaureksClosetOpenWebsite=function() error("Browser unavailable") end
+    assert(not V:OpenWebsite(page) and V.websiteAddress.text==url,"Native errors are contained and preserve the address")
+end
 print("PASS: default-on/persisted-off checks, cancellation, mismatch/missing DLL alerts, numeric versions, deduplication, errors, timeout and website actions")
 
 assert(V:VersionIsNewer("3.6.8","3.6.7"))

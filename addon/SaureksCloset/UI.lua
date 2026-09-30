@@ -1647,20 +1647,44 @@ function V:CreateSettingsPage(p)
     -- Darken only this texture at runtime; no duplicate artwork is required.
     self.settingsBackground:SetVertexColor(.6,.6,.6)
     self.settingsBorder,self.settingsShadowFrame=createWardrobeViewFrame(p,"SaureksClosetSettingsViewBorder",self.frame)
-    -- Keep the title and navigation at their established positions.
+    -- Keep settings compact enough to leave a complete donation card below.
     self.settingsTitlePanel=CreateFrame("Frame",nil,p)
-    self.settingsTitlePanel:SetPoint("TOPLEFT",p,"TOPLEFT",60,-115)
-    self.settingsTitlePanel:SetWidth(240);self.settingsTitlePanel:SetHeight(78)
-    self.settingsTitle=label(self.settingsTitlePanel,"Saurek's Closet",16,16,208,22)
-    self.settingsTitle:SetFont("Fonts\\FRIZQT__.TTF",16)
-    self.settingsTagline=label(self.settingsTitlePanel,"A damn fine 1.12 transmog.",16,45,208,17,true)
+    self.settingsTitlePanel:SetPoint("TOPLEFT",p,"TOPLEFT",38,-94)
+    self.settingsTitlePanel:SetWidth(284);self.settingsTitlePanel:SetHeight(47)
+    self.settingsTitle=label(self.settingsTitlePanel,"Saurek's Closet",0,0,284,22)
+    self.settingsTitle:SetFont("Fonts\\FRIZQT__.TTF",16);self.settingsTitle:SetJustifyH("CENTER")
+    self.settingsTagline=label(self.settingsTitlePanel,"A damn fine 1.12 transmog.",0,27,284,17,true)
+    self.settingsTagline:SetJustifyH("CENTER")
     self.settingsNavigationButtons={}
     for i,name in ipairs({"privacy","links","updates"}) do
-        local x=60+math.mod(i-1,2)*124
-        local y=209+math.floor((i-1)/2)*35
-        local b=settingsButton(p,({privacy="Internet Settings",links="Links",updates="Version Details"})[name],x,y,116,function() V:OpenInfoPage(this.infoPage) end)
+        local x=i==2 and 186 or 38
+        local y=i==3 and 186 or 151
+        local b=settingsButton(p,({privacy="Internet Settings",links="Links",updates="Version Details"})[name],x,y,i==3 and 284 or 136,function() V:OpenInfoPage(this.infoPage) end)
         b.infoPage=name;self.settingsNavigationButtons[name]=b
     end
+
+    local donation=section(p,31,224,300,200,false)
+    self.donationPanel=donation
+    donation:SetBackdropColor(.06,.045,.025,.92);donation:SetBackdropBorderColor(.64,.51,.29)
+    local heading=label(donation,"Support the addon",14,10,272,18)
+    heading:SetFont("Fonts\\FRIZQT__.TTF",12)
+    self.donationMessage=label(donation,"Thanks for using my addon. I made it out of love for the game, but, it's always nice to get a tip for my effort. If you have the money to spare a donation would be appreciated! Make sure to leave a comment about any feature requests or what you love about the addon. Thanks!",14,34,272,72,true)
+    self.donationMessage:SetFont("Fonts\\FRIZQT__.TTF",10);self.donationMessage:SetSpacing(1)
+    self.donationMessage:SetTextColor(.9,.86,.76)
+    local qr=CreateFrame("Button",nil,donation);self.donationQRButton=qr
+    qr:SetPoint("TOPLEFT",donation,"TOPLEFT",14,-112);qr:SetWidth(80);qr:SetHeight(80)
+    self.donationQRThumbnail=texture(qr,art.."CashAppQR.tga",0,0,80,80,"ARTWORK")
+    qr:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square","ADD")
+    qr:SetScript("OnClick",function() V:OpenInfoPage("donations") end)
+    qr:SetScript("OnEnter",function()
+        GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Cash App: $saurek")
+        GameTooltip:AddLine("Click for a larger, scannable QR code.",1,1,1,true);GameTooltip:Show()
+    end)
+    qr:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    self.donateKofiButton=settingsButton(donation,"Donate with Ko-fi",110,112,176,function() V:OpenDonationLink(4) end,.65)
+    self.donateCashAppButton=settingsButton(donation,"Cash App: $saurek",110,148,176,function() V:OpenDonationLink(5) end,.65)
+    local qrHint=label(donation,"Click the QR code to enlarge",110,181,176,12,true)
+    qrHint:SetFont("Fonts\\FRIZQT__.TTF",9);qrHint:SetTextColor(.72,.68,.6)
 
     local window=sheet("SaureksClosetInformation",UIParent,"Internet Settings")
     self.settingsInfoWindow=window
@@ -1671,7 +1695,7 @@ function V:CreateSettingsPage(p)
     window:SetScript("OnDragStop",function() this:StopMovingOrSizing() end)
     window.close:SetScript("OnClick",function() V.settingsInfoWindow:Hide() end)
     table.insert(UISpecialFrames,window:GetName())
-    self.infoPages={privacy=page(window),updates=page(window),links=page(window)}
+    self.infoPages={privacy=page(window),updates=page(window),links=page(window),donations=page(window)}
     local privacy=self.infoPages.privacy
     label(privacy,"Update checks",38,90,284,24)
     local checkbox=CreateFrame("CheckButton","SaureksClosetAutoUpdates",privacy,"UICheckButtonTemplate")
@@ -1723,12 +1747,47 @@ function V:CreateSettingsPage(p)
     self.websiteAddress=edit(links,"SaureksClosetWebsiteAddress",42,274,272,200)
     self.websiteAddress:SetText(self.websiteURLs[1])
     label(links,"You can copy this address if your browser does not open.",38,311,284,46,true)
+
+    local donations=self.infoPages.donations
+    self.donationQRImage=texture(donations,art.."CashAppQR.tga",52,80,256,256,"ARTWORK")
+    local recipient=label(donations,"Cash App: $saurek",38,341,284,18)
+    recipient:SetJustifyH("CENTER")
+    self.donationWindowKofiButton=settingsButton(donations,"Ko-fi",38,368,136,function() V:OpenDonationLink(4) end)
+    self.donationWindowCashAppButton=settingsButton(donations,"Cash App",186,368,136,function() V:OpenDonationLink(5) end)
+    self.donationCopyAddress=edit(donations,"SaureksClosetDonationAddress",42,401,272,200)
+    self.donationCopyAddress:SetText(self.websiteURLs[5])
+    self.donationCopyAddress:SetScript("OnEditFocusGained",function() this:HighlightText() end)
+    self.donationCopyAddress:SetScript("OnEnter",function()
+        GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Copy donation address")
+        GameTooltip:AddLine("Click here and press Ctrl+C if your browser does not open.",1,1,1,true);GameTooltip:Show()
+    end)
+    self.donationCopyAddress:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    for _,b in ipairs({self.donateKofiButton,self.donationWindowKofiButton}) do b.websitePage=4 end
+    for _,b in ipairs({self.donateCashAppButton,self.donationWindowCashAppButton}) do b.websitePage=5 end
+    for _,b in ipairs({self.donateKofiButton,self.donateCashAppButton,self.donationWindowKofiButton,self.donationWindowCashAppButton}) do
+        b:SetScript("OnEnter",function()
+            GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(V.websiteURLs[this.websitePage])
+            GameTooltip:AddLine("Open this donation page in your browser.",1,1,1,true);GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave",function() GameTooltip:Hide() end)
+    end
     self:RefreshUpdateUI()
+end
+function V:OpenDonationLink(page)
+    if page~=4 and page~=5 then return false end
+    local opened=self:OpenWebsite(page)
+    if not opened then self:OpenInfoPage("donations") end
+    if self.donationCopyAddress then
+        self.donationCopyAddress:SetText(self.websiteURLs[page])
+        if not opened then self.donationCopyAddress:SetFocus();self.donationCopyAddress:HighlightText() end
+    end
+    return opened
 end
 function V:OpenInfoPage(name)
     if not self.infoPages or not self.infoPages[name] then return end
     for key,p in pairs(self.infoPages) do if key==name then p:Show() else p:Hide() end end
-    self.settingsInfoWindow.title:SetText(({privacy="Internet Settings",updates="Version Details",links="Links"})[name])
+    self.settingsInfoWindow.title:SetText(({privacy="Internet Settings",updates="Version Details",links="Links",donations="Support the addon"})[name])
+    if name=="donations" and self.donationCopyAddress then self.donationCopyAddress:SetText(self.websiteURLs[5]) end
     self.settingsInfoWindow:Show()
     self:RefreshUpdateUI()
 end

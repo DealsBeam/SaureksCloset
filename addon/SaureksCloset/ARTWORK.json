@@ -617,5 +617,22 @@
     "encoding": "RGBA8 lossless, uncompressed TGA",
     "gpu_base_bytes": 16384,
     "sha256": "458743213426e29d9e47a1fe1c6514759f543cb9bc839b563923a4d269437ed6"
+  },
+  {
+    "source": "assets/donations/cashapp-saurek.svg",
+    "source_sha256": "2f0009c1b8898f96021e59ea8df89647d0df088757d4497231dad0539863c542",
+    "provenance": "User-supplied Cash App QR SVG, preserved with an opaque black quiet zone; decoded and verified at a 256px display size.",
+    "generated": true,
+    "texture": "CashAppQR.tga",
+    "size": [
+      512,
+      512
+    ],
+    "bytes": 1048620,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 1048576,
+    "sha256": "f3b717394a2a4f8cdba18bbfa4d973758c70244d35368e713a69410e5d854aae",
+    "qr_destination": "https://cash.app/$saurek?qr=1",
+    "quiet_zone_pixels": 48
   }
 ]

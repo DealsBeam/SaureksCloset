@@ -33,6 +33,19 @@ for entry in manifest:
 assert not list(folder.glob('ArmorDecorations*'))
 assert not list(folder.glob('GenericTrim*')) and not list(folder.glob('WardrobeBG*'))
 assert not list(folder.glob('Settings*'))
+qr_entry = next(entry for entry in manifest if entry['texture'] == 'CashAppQR.tga')
+assert qr_entry['qr_destination'] == 'https://cash.app/$saurek?qr=1'
+assert hashlib.sha256((root / qr_entry['source']).read_bytes()).hexdigest() == qr_entry['source_sha256']
+qr_data = (folder / 'CashAppQR.tga').read_bytes()
+assert qr_data[2] == 2 and qr_data[16] == 32  # Uncompressed true-color TGA.
+with Image.open(folder / 'CashAppQR.tga') as qr:
+    assert qr.size == (512, 512) and qr.mode == 'RGBA'
+    assert qr.getchannel('A').getextrema() == (255, 255)
+    quiet = qr_entry['quiet_zone_pixels']
+    assert quiet >= 4 * (512 - 2 * quiet) / 37  # Four clear QR modules.
+    for box in [(0, 0, 512, quiet), (0, 512 - quiet, 512, 512),
+                (0, 0, quiet, 512), (512 - quiet, 0, 512, 512)]:
+        assert qr.crop(box).getextrema() == ((0, 0), (0, 0), (0, 0), (255, 255))
 assert hashlib.sha256((folder / 'Main.blp').read_bytes()).hexdigest() == '1dcd62ccdc06f806bde7be4435f6e2f7f9589d1984ec2ec5075555db51321a3d'
 # Verify original artwork byte-for-byte, separately from the newly generated shadows.
 for prefix in ['ArmorSlots', 'ArmorShadow']:

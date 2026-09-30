@@ -2,6 +2,7 @@
 #include <winhttp.h>
 #include <shellapi.h>
 #include "UpdateState.h"
+#include "WebsiteLinks.h"
 static UpdateMailbox updateMailbox;
 static DWORD updateLastStart=0;
 static bool updateStarted=false;
@@ -105,11 +106,7 @@ static int __fastcall pollUpdateCheck(void* L){
 }
 static int __fastcall openWebsite(void* L){
     if(!isNumber(L,1))return result(L,-1);
-    const double page=toNumber(L,1);
-    const wchar_t* url=nullptr;
-    if(page==1)url=L"https://github.com/mu-arch/SaureksCloset";
-    if(page==2)url=L"https://github.com/mu-arch/SaureksCloset/releases";
-    if(page==3)url=L"https://discord.gg/6mfxCdNbM6";
+    const wchar_t* url=allowedWebsite(toNumber(L,1));
     if(!url)return result(L,-1);
     // Only an explicit UI click calls this; remote data cannot choose a URL.
     return result(L,reinterpret_cast<std::intptr_t>(ShellExecuteW(nullptr,L"open",url,nullptr,nullptr,SW_SHOWNORMAL))>32?1:0);
