@@ -1666,13 +1666,20 @@ function V:CreateSettingsPage(p)
     local rule=donation:CreateTexture(nil,"BORDER")
     rule:SetTexture(.64,.51,.29,.45);rule:SetPoint("TOPLEFT",donation,"TOPLEFT",14,-34)
     rule:SetWidth(272);rule:SetHeight(1)
-    self.donationMessage=label(donation,"World of Warcraft has always been more than just a game to me. It’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n\nWhile donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n\nSharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\n\nYours,\nSaurek",14,42,272,192,true)
+    self.donationMessage=label(donation,"World of Warcraft has always been more than just a game to me. It’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n\nWhile donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n\nSharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!",14,42,272,156,true)
     self.donationMessage:SetFont("Fonts\\FRIZQT__.TTF",9);self.donationMessage:SetSpacing(1)
     self.donationMessage:SetTextColor(.9,.86,.76)
-    self.donateKofiButton=settingsButton(donation,"Donate with Ko-fi",14,240,132,function() V:OpenDonationLink(4) end,.65)
-    self.donateCashAppButton=settingsButton(donation,"Cash App: $saurek",154,240,132,function() V:OpenInfoPage("donations") end,.65)
-    self.donateKofiButton.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
-    self.donateCashAppButton.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
+    self.donationClosing=label(donation,"Yours,",174,211,112,12,true)
+    self.donationClosing:SetFont("Fonts\\FRIZQT__.TTF",9);self.donationClosing:SetTextColor(.9,.86,.76)
+    self.donationSignature=texture(donation,art.."DonationSignature.tga",166,226,120,40,"ARTWORK")
+    self.donationSignature:SetTexCoord(16/512,496/512,48/256,208/256)
+    self.donationLinksButton=settingsButton(donation,"Kofi & Cashapp Links",14,240,144,function() V:OpenInfoPage("donations") end,.65)
+    self.donationLinksButton.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
+    self.donationLinksButton:SetScript("OnEnter",function()
+        GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText("Kofi & Cashapp Links")
+        GameTooltip:AddLine("View both donation links and the Cash App QR code.",1,1,1,true);GameTooltip:Show()
+    end)
+    self.donationLinksButton:SetScript("OnLeave",function() GameTooltip:Hide() end)
 
     local window=sheet("SaureksClosetInformation",UIParent,"Internet Settings")
     self.settingsInfoWindow=window
@@ -1750,13 +1757,12 @@ function V:CreateSettingsPage(p)
         GameTooltip:AddLine("Click here and press Ctrl+C if your browser does not open.",1,1,1,true);GameTooltip:Show()
     end)
     self.donationCopyAddress:SetScript("OnLeave",function() GameTooltip:Hide() end)
-    for _,b in ipairs({self.donateKofiButton,self.donationWindowKofiButton}) do b.websitePage=4 end
-    for _,b in ipairs({self.donateCashAppButton,self.donationWindowCashAppButton}) do b.websitePage=5 end
-    for _,b in ipairs({self.donateKofiButton,self.donateCashAppButton,self.donationWindowKofiButton,self.donationWindowCashAppButton}) do
+    self.donationWindowKofiButton.websitePage=4
+    self.donationWindowCashAppButton.websitePage=5
+    for _,b in ipairs({self.donationWindowKofiButton,self.donationWindowCashAppButton}) do
         b:SetScript("OnEnter",function()
             GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(V.websiteURLs[this.websitePage])
-            local hint=this==V.donateCashAppButton and "View the Cash App QR code and donation link." or "Open this donation page in your browser."
-            GameTooltip:AddLine(hint,1,1,1,true);GameTooltip:Show()
+            GameTooltip:AddLine("Open this donation page in your browser.",1,1,1,true);GameTooltip:Show()
         end)
         b:SetScript("OnLeave",function() GameTooltip:Hide() end)
     end

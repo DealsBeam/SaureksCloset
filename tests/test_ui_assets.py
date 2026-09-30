@@ -33,6 +33,15 @@ for entry in manifest:
 assert not list(folder.glob('ArmorDecorations*'))
 assert not list(folder.glob('GenericTrim*')) and not list(folder.glob('WardrobeBG*'))
 assert not list(folder.glob('Settings*'))
+signature_entry = next(entry for entry in manifest if entry['texture'] == 'DonationSignature.tga')
+signature_source = root / signature_entry['source']
+assert hashlib.sha256(signature_source.read_bytes()).hexdigest() == signature_entry['source_sha256']
+with Image.open(signature_source) as source, Image.open(folder / 'DonationSignature.tga') as signature:
+    assert signature.mode == 'RGBA' and signature.size == (512, 256)
+    assert signature.getchannel('A').getextrema() == (0, 255)
+    expected = source.convert('RGBA').resize((480, 160), Image.Resampling.LANCZOS)
+    assert signature.crop(signature_entry['content_rect']).tobytes() == expected.tobytes()
+    assert signature.getchannel('A').crop((0, 0, 512, 48)).getbbox() is None
 qr_entry = next(entry for entry in manifest if entry['texture'] == 'CashAppQR.tga')
 assert qr_entry['qr_destination'] == 'https://cash.app/$saurek?qr=1'
 assert hashlib.sha256((root / qr_entry['source']).read_bytes()).hexdigest() == qr_entry['source_sha256']

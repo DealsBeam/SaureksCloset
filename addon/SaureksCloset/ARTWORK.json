@@ -634,5 +634,26 @@
     "sha256": "f3b717394a2a4f8cdba18bbfa4d973758c70244d35368e713a69410e5d854aae",
     "qr_destination": "https://cash.app/$saurek?qr=1",
     "quiet_zone_pixels": 48
+  },
+  {
+    "source": "assets/donations/saurek-signature.png",
+    "source_sha256": "266e6f46da7cdbff1b4fff5b93747ab0f1547df7c708ea4e154cb464659bd531",
+    "provenance": "User-supplied transparent gold signature, resized proportionally with original colors and alpha; no artwork changes.",
+    "generated": true,
+    "texture": "DonationSignature.tga",
+    "size": [
+      512,
+      256
+    ],
+    "bytes": 524332,
+    "encoding": "RGBA8 lossless, uncompressed TGA",
+    "gpu_base_bytes": 524288,
+    "sha256": "b9c80f5c681ddbe2dd6dfc0491f348330bc8a88fbf84223bcb96254f87b8648b",
+    "content_rect": [
+      16,
+      48,
+      496,
+      208
+    ]
   }
 ]
