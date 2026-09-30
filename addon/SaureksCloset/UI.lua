@@ -1660,7 +1660,7 @@ function V:CreateSettingsPage(p)
     local donation=section(p,31,145,300,278,false)
     self.donationPanel=donation
     donation:SetBackdropColor(.07,.05,.035,.96);donation:SetBackdropBorderColor(.64,.51,.29)
-    self.donationTitle=label(donation,"Thanks for using my addon!",14,8,272,18)
+    self.donationTitle=label(donation,"Thanks for using my addon!",14,11,272,18)
     self.donationTitle:SetFont("Fonts\\FRIZQT__.TTF",12);self.donationTitle:SetJustifyH("CENTER");self.donationTitle:SetJustifyV("MIDDLE")
     self.donationTitle:SetTextColor(.96,.78,.45)
     local rule=donation:CreateTexture(nil,"BORDER")
