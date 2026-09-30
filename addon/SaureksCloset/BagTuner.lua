@@ -1,12 +1,12 @@
 -- Weapon fits retain their account profiles; bag-instance fits belong to looks.
 local V=VanityStudio
 V.bagTunerFields={
-    {key="left",label="Left / right",step=.005,min=-1,max=1,decimals=4,help="Positive moves toward the character's left. Negative moves right."},
-    {key="inset",label="Depth / inset",step=.005,min=-1,max=1,decimals=4,help="Positive moves inward; negative moves outward. Relative to the default stored placement."},
-    {key="up",label="Up / down",step=.005,min=-1,max=1,decimals=4,help="Positive raises the item; negative lowers it. Position uses fixed model units, so zoom does not change the fit."},
-    {key="pitch",label="Inward tilt",step=1,min=-180,max=180,decimals=1,help="Degrees around the lateral axis. Positive pulls the bottom inward toward the back."},
-    {key="roll",label="Side tilt",step=1,min=-180,max=180,decimals=1,help="Degrees of side tilt. Positive moves the bottom toward the character's right."},
-    {key="yaw",label="Twist",step=1,min=-180,max=180,decimals=1,help="Degrees of rotation around the item's upright axis."},
+    {key="left",label="Lateral shift",step=.005,min=-1,max=1,decimals=4,help="Move across the character's left-right axis. Positive moves left; negative moves right."},
+    {key="inset",label="Longitudinal",step=.005,min=-1,max=1,decimals=4,help="Move along the character's front-back axis. Positive moves inward toward the character; negative moves outward, relative to the default placement."},
+    {key="up",label="Vertical shift",step=.005,min=-1,max=1,decimals=4,help="Move along the vertical axis. Positive raises the item; negative lowers it. Position uses fixed model units, so zoom does not change the fit."},
+    {key="pitch",label="Lateral tilt",step=1,min=-180,max=180,decimals=1,help="Rotate around the character's lateral (left-right) axis. Positive pulls the bottom inward toward the back."},
+    {key="roll",label="Longitudinal tilt",step=1,min=-180,max=180,decimals=1,help="Rotate around the character's longitudinal (front-back) axis. Positive moves the bottom toward the character's right."},
+    {key="yaw",label="Vertical twist",step=1,min=-180,max=180,decimals=1,help="Rotate around the item's vertical axis, twisting it left or right."},
     {key="scale",label="Size (%)",step=1,min=25,max=200,decimals=1,help="Percentage of the original size. Weapons default to 100%; bags start at 85% on the back or 70% on a hip."},
 }
 local function keyFor(bag,race,sex) return bag..":"..race..":"..sex end

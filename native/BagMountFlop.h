@@ -6,8 +6,9 @@
 // No preset or independent oscillator chooses it; the bag stays rigid.
 static void flopBagAtContact(BagMatrix& pose,const BagMatrix& fitted,
                              const std::array<float,3>& up,float top,float height,float bob,float scale,
-                             BagMotion& motion,std::uint32_t now){
+                             BagMotion& motion,std::uint32_t now,float mass=1.f){
     if(!std::isfinite(bob)||!std::isfinite(height)||height<.00001f||scale<.00001f)return;
+    mass=std::isfinite(mass)?std::fmax(1.f,std::fmin(2.f,mass)):1.f;
     const std::array<float,3> outward{{-fitted[0]/scale,-fitted[1]/scale,-fitted[2]/scale}};
     std::array<float,3> axis{{outward[1]*up[2]-outward[2]*up[1],
         outward[2]*up[0]-outward[0]*up[2],outward[0]*up[1]-outward[1]*up[0]}};
@@ -23,12 +24,12 @@ static void flopBagAtContact(BagMatrix& pose,const BagMatrix& fitted,
     // hip. The quadratic start joins with zero slope at lift=0; tanh bounds big
     // impulses smoothly. A horizontal-facing rear panel defines the hinge.
     const float response=lift*lift/(lift+.1f);
-    const float wanted=10.f*.01745329252f*std::tanh(response)*std::fmin(1.f,length/.15f);
+    const float wanted=10.f*.01745329252f*std::tanh(response)*std::fmin(1.f,length/.15f)/std::sqrt(mass);
     // Smooth the half-cycle lift so a small bag never snaps off its resting
     // stop. Each bag owns this state; repeated draws cannot advance it twice.
     const auto elapsed=now-motion.flopTime;
     if(elapsed){
-        motion.flopAngle+=(wanted-motion.flopAngle)*(1-std::exp(-std::fmin(float(elapsed),250.f)*.001f/.045f));
+        motion.flopAngle+=(wanted-motion.flopAngle)*(1-std::exp(-std::fmin(float(elapsed),250.f)*.001f/(.045f*std::sqrt(mass))));
         motion.flopTime=now;
     }
     const float angle=motion.flopAngle;

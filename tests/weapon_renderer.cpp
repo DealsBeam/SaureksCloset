@@ -2132,8 +2132,10 @@ int main(){
         static constexpr char rigMarker[]="ClosetBagV3";
         memory[ch+8]=sizeof(rigMarker);memory[ch+0x34]=61;memory[ch+0x38]=0xC30000;
         for(unsigned i=0;i<sizeof(rigMarker);++i)memory[0xC2A000+i]=rigMarker[i];
-        positions[0xC30000+108+96]={{-.5f,-.5f,-.6195f}};
-        positions[0xC30000+108*60+96]={{.5f,.5f,.6195f}};
+        // Mageweave's real rest footprint is compact; generic unit-cube
+        // bounds would incorrectly activate the heavy-backpack response.
+        positions[0xC30000+108+96]={{-.422f,-.5925f,-.6195f}};
+        positions[0xC30000+108*60+96]={{0.f,.5925f,.6195f}};
         positions[ch+0xB4]={{-2,-2,-2}};positions[ch+0xC0]={{2,2,2}};
         memory[model+0x94]=0xC40000;matrices[model+0xFC]=rest;
         for(unsigned i=0;i<61;++i)matrices[0xC40000+64*i]=rest;

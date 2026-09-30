@@ -13,9 +13,10 @@ struct BagResponseProfile {
     float top=.6195f,height=1.239f;
     float sag=.10f,rate=13.f,inertia=.7f,lateral=.085f,lift=.16f;
     std::array<float,3> low{{-.5f,-.5f,-.6195f}},high{{.5f,.5f,.6195f}};
+    bool measuredBounds=false;
     bool operator==(const BagResponseProfile& p) const {
         return top==p.top&&height==p.height&&sag==p.sag&&rate==p.rate&&
-            inertia==p.inertia&&lateral==p.lateral&&lift==p.lift&&low==p.low&&high==p.high;
+            inertia==p.inertia&&lateral==p.lateral&&lift==p.lift&&low==p.low&&high==p.high&&measuredBounds==p.measuredBounds;
     }
 };
 static BagResponseProfile bagResponseProfile(const char* material,float bottom=-.6195f,float top=.6195f){
@@ -30,6 +31,16 @@ static BagResponseProfile bagResponseProfile(const char* material,float bottom=-
         profile.sag=.055f;profile.rate=17.f;profile.inertia=.5f;profile.lateral=.055f;profile.lift=.085f;
     }
     return profile;
+}
+// The model catalogue normalizes height, but not width or depth. Use the
+// authored footprint to distinguish a full backpack from a narrow pouch;
+// changing the user's fitted scale must not change its apparent weight.
+static float bagModelMass(const BagResponseProfile* profile){
+    if(!profile||!profile->measuredBounds)return 1.f;
+    const float width=profile->high[1]-profile->low[1];
+    const float depth=profile->high[0]-profile->low[0];
+    if(!std::isfinite(width)||!std::isfinite(depth)||width<=0||depth<=0)return 1.f;
+    return 1.f+std::fmax(0.f,std::fmin(1.f,(width*depth-.52f)*3.f));
 }
 struct BagResponseStep { float decay=1,dtDecay=0,driverBlend=0; };
 struct BagResponse {

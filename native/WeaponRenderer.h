@@ -247,7 +247,7 @@ static bool bagResponseResource(std::uintptr_t model,const char* material,BagRes
     if(!read(definitions+108+96,low)||!read(definitions+108*60+96,high))return false;
     for(unsigned axis=0;axis<3;++axis)
         if(!std::isfinite(low[axis])||!std::isfinite(high[axis])||high[axis]-low[axis]<.005f||high[axis]-low[axis]>10.f)return false;
-    profile=bagResponseProfile(material,low[2],high[2]);profile.low=low;profile.high=high;
+    profile=bagResponseProfile(material,low[2],high[2]);profile.low=low;profile.high=high;profile.measuredBounds=true;
     return true;
 }
 static bool bagTuningLuaKey(void* L,unsigned& bag,unsigned& race,unsigned& sex){

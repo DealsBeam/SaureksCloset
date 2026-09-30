@@ -63,7 +63,9 @@ static constexpr float bagMotionHeight=1.239f;
 static constexpr float bagMotionVerticalFraction=.04f;
 static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float scale,
                             std::uint32_t now,std::uintptr_t model,unsigned fit,bool running=false,float pivotHeight=0,
-                            std::array<float,3> worldUp={{0,0,1}},const std::array<float,3>* verticalMeasure=nullptr,float airLiftTarget=0,unsigned identity=0,bool activeMotion=true,bool pinContact=false){
+                            std::array<float,3> worldUp={{0,0,1}},const std::array<float,3>* verticalMeasure=nullptr,float airLiftTarget=0,unsigned identity=0,bool activeMotion=true,bool pinContact=false,float mass=1.f){
+    mass=std::isfinite(mass)?std::fmax(1.f,std::fmin(2.f,mass)):1.f;
+    const float massRoot=std::sqrt(mass),massDrive=mass*massRoot;
     const auto wanted=bagRotation(pose,scale);
     const std::array<float,3> position{{pose[12],pose[13],pose[14]}};
     // The caller removes the actor's root/render transform before this step.
@@ -79,7 +81,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
     const float strength=bagJiggleSizeGain(scale);
     // Height already scales the bob's travel and input limits. Applying the
     // angular size gain again makes small-bag bounce shrink quadratically.
-    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction;
+    const float height=bagMotionHeight*scale,verticalLimit=height*bagMotionVerticalFraction/massRoot;
     // Measure mount impulses at a common reference size, then scale their
     // force once. Scaling both the input clamp and force also squares size.
     const float driverHeight=bagMotionHeight*std::fmax(scale,.45f*.85f);
@@ -97,7 +99,7 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         // An exact spring step remains stable through slow/irregular frames.
         const float requestedAir=std::isfinite(airLiftTarget)?std::fmax(0.f,std::fmin(1.f,airLiftTarget)):0;
         const float airTarget=delayedBagJiggle(state.airJiggle,std::array<float,1>{{requestedAir}},now,identity)[0];
-        const float airRate=airTarget>0?14.f:17.f;
+        const float airRate=(airTarget>0?14.f:17.f)/massRoot;
         const float airError=state.airborneWeight-airTarget;
         const float airStep=(state.airborneVelocity+airRate*airError)*seconds;
         const float airDecay=std::exp(-airRate*seconds);
@@ -129,21 +131,21 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
         // A swinging limb can move much faster than the torso. Its measured
         // speed opens a softer rocking response; no autonomous wiggle cycle.
         const float rockingTarget=pinContact&&activeMotion?
-            std::fmax(0.f,std::fmin(1.f,(bagVectorLength(velocity)-2.5f)/2.5f)):0;
+            std::fmax(0.f,std::fmin(1.f,(bagVectorLength(velocity)-2.5f)/2.5f))/massRoot:0;
         state.rocking+=(1-std::exp(-seconds/.08f))*(rockingTarget-state.rocking);
         const float rocking=pinContact&&activeMotion?state.rocking:0;
         // Returning from a large swing must not snap to the smaller idle cap.
-        const float angularLimit=std::fmax((bagMotionLimit+17.f*.01745329252f*rocking)*strength,
+        const float angularLimit=std::fmax((bagMotionLimit+17.f*.01745329252f*rocking)*strength/massRoot,
             activeMotion?0:bagVectorLength(state.angularOffset)+.000001f);
         const float angularKnee=angularLimit*.5f;
-        const float springRate=22.f-8.f*rocking;
+        const float springRate=(22.f-8.f*rocking)/massRoot;
 
         // A short driver filter bounds angular acceleration. Only its change
         // excites the spring; a stationary body has no procedural motion.
         // Small fixed substeps keep the stiff strap stable through slow frames.
         const unsigned steps=static_cast<unsigned>(std::ceil(seconds*480.f));
         const float dt=seconds/steps,driverBlend=1-std::exp(-dt/.035f);
-        const float inertia=(.65f+.15f*state.runWeight)*(1+.5f*rocking)*strength;
+        const float inertia=(.65f+.15f*state.runWeight)*(1+.5f*rocking)*strength/massDrive;
         for(unsigned step=0;step<steps;++step){
             std::array<float,3> acceleration{};
             for(unsigned i=0;i<3;++i){
@@ -158,8 +160,8 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
             const float verticalAcceleration=std::fmax(-30*driverHeight,std::fmin(30*driverHeight,(nextVertical-state.bodyVerticalVelocity)/dt));
             state.bodyVerticalVelocity=nextVertical;
             const float verticalStretch=std::fmax(0.f,(std::fabs(state.verticalOffset)-verticalLimit*.5f)/(verticalLimit*.5f));
-            const float verticalStiffness=16.f*16.f*(1+10*verticalStretch*verticalStretch);
-            state.verticalVelocity+=dt*(-verticalStiffness*state.verticalOffset-.9f*strength*verticalAcceleration);
+            const float verticalStiffness=16.f*16.f/mass*(1+10*verticalStretch*verticalStretch);
+            state.verticalVelocity+=dt*(-verticalStiffness*state.verticalOffset-.9f*strength*verticalAcceleration/massDrive);
             state.verticalVelocity*=std::exp(-2*std::sqrt(verticalStiffness)*dt);
             state.verticalOffset+=dt*state.verticalVelocity;
             if(std::fabs(state.verticalOffset)>verticalLimit){
@@ -238,13 +240,14 @@ static void smoothBagMotion(BagMotion& state,std::array<float,16>& pose,float sc
             auto delta=bagRotationProduct(phased,inverse);
             const float sine=std::sqrt(delta[0]*delta[0]+delta[1]*delta[1]+delta[2]*delta[2]);
             const float angle=2*std::atan2(sine,std::fmax(0.f,delta[3]));
-            const float limit=(12.f+(pinContact?18.f*state.rocking:0))*.01745329252f;
+            const float limit=(12.f+(pinContact?18.f*state.rocking:0))*.01745329252f/massRoot;
             if(sine>.000001f){
                 // Timing is independent of size. Blending this correction
                 // toward the current pose collapses a small bag's phase delay
                 // (35% used only ~19ms of the former 47ms delay). The spring
                 // amplitude is already size-scaled before it enters history.
-                const float applied=std::fmin(limit,angle*state.phaseWeight);
+                const float requested=angle*state.phaseWeight;
+                const float applied=mass>1.0001f?limit*std::tanh(requested/limit):std::fmin(limit,requested);
                 for(unsigned i=0;i<3;++i)delta[i]*=std::sin(applied*.5f)/sine;
                 delta[3]=std::cos(applied*.5f);phased=bagRotationProduct(delta,wanted);
             }

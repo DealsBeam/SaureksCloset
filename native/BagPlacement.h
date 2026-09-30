@@ -119,14 +119,15 @@ static bool bagPlacement(const std::array<float,16>& renderedBack,const std::arr
         // lift. Local fabric controls are sampled from the unmodified mount
         // above, so this rigid secondary movement cannot feed back into itself.
         if(tuning.motion&&directionReady){
+            const float mass=bagModelMass(responseProfile);
             const auto fitted=target;
             const float contactTop=responseProfile?responseProfile->top:.6195f;
             const float pivot=(fittedOverride||baseMount)?contactTop:mount.raisedOrigin;
             smoothBagMotion(*motion,target,size,now,model,
-                (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,pivot,worldUp,&verticalMeasure,airLiftTarget,instanceFits?identity:0,activeMotion,fittedOverride!=nullptr);
+                (identity?identity:bag)*32+fitIndex+(override.revision<<6),running,pivot,worldUp,&verticalMeasure,airLiftTarget,instanceFits?identity:0,activeMotion,fittedOverride!=nullptr,mass);
             const float bobGain=1.f+.75f*motion->runWeight;
             if(fittedOverride)flopBagAtContact(target,fitted,worldUp,contactTop,
-                (responseProfile?responseProfile->height:bagMotionHeight)*size,motion->verticalBob*bobGain,size,*motion,now);
+                (responseProfile?responseProfile->height:bagMotionHeight)*size,motion->verticalBob*bobGain,size,*motion,now,mass);
             if(motion->airborneWeight>.000001f){
                 BagMatrix worldToModel{{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}},modelToWorld;
                 if(modelToRender&&worldToRender)worldToModel=bagMatrixProduct(renderToModel,*worldToRender);

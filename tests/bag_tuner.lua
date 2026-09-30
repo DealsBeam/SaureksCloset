@@ -25,6 +25,13 @@ function SaureksClosetSetBagFit(bag,race,sex,enabled,left,inset,up,pitch,roll,ya
 end
 dofile("addon/SaureksCloset/BagTuner.lua")
 local V=VanityStudio
+local axisLabels={left="Lateral shift",inset="Longitudinal",up="Vertical shift",
+    pitch="Lateral tilt",roll="Longitudinal tilt",yaw="Vertical twist"}
+for _,field in ipairs(V.bagTunerFields) do
+    if axisLabels[field.key] then
+        assert(field.label==axisLabels[field.key] and string.len(field.help)>30)
+    end
+end
 V:InitializeBagTuning();assert(calls==16 and not next(native))
 local state=V:GetBagTunerState();assert(state.available and state.key=="1:2:0" and state.values.scale==85)
 assert(not state.saved and not state.dirty and native[state.key].pitch==15)

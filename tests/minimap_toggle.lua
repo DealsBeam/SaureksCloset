@@ -160,7 +160,7 @@ V.draft={slot=1,id=10501};state=V:GetBagTunerState()
 editor=frame(nil);editor.field=V.bagTunerFields[3];editor.text="invalid";editor.editing=true;editor.targetKey=state.key
 V.bagTunerWindow={rows={{editor=editor}}}
 local before=reloads
-check(not V:RefreshAddon() and reloads==before and V.lastMessage=="Enter a number for Up / down.","Invalid unfinished text blocks refresh with the validation message")
+check(not V:RefreshAddon() and reloads==before and V.lastMessage=="Enter a number for Vertical shift.","Invalid unfinished text blocks refresh with the validation message")
 check(V.draft and c.selected[1]==10500 and not next(bag.fits) and same(VanityStudioDB.outfits,saved),"Rejected text leaves the current look, pending preview and saved looks intact")
 check(not V:RefreshAddon() and reloads==before,"A value rejected on prior focus loss still blocks refresh")
 editor.text="0.5";editor.editing=true
