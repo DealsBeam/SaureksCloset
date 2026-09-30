@@ -98,12 +98,17 @@ end
 V:CreateSettingsPage(settings)
 check(table.getn(opened)==0,"Constructing Settings must never launch a browser")
 check(not V.settingsInfoWindow:IsShown(),"Information window starts closed")
-local expectedMessage="Thanks for using my addon! World of Warcraft has always been more than just a game to me—it’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n"..
-    "While donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n"..
-    "Sharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\nYours,\nSaurek"
+local expectedMessage="World of Warcraft has always been more than just a game to me—it’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n\n"..
+    "While donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n\n"..
+    "Sharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\n\nYours,\nSaurek"
+check(V.donationTitle and V.donationTitle.kind=="FontString" and V.donationTitle.text=="Thanks for using my addon!","The greeting is a separate title")
 check(V.donationMessage.text==expectedMessage,"The full replacement letter, punctuation, paragraph breaks and signature are preserved")
+check(V.donationTitle.fontSize==12 and V.donationTitle.fontSize>V.donationMessage.fontSize,"The greeting is larger than the letter body")
+for _,text in ipairs({V.donationTitle.text,V.donationMessage.text}) do
+    check(not string.find(text,"<[^>]+>"),"Donation text must not render HTML tags")
+end
 check(not V.settingsTagline and not V.settingsTitlePanel,"The tagline and repeated title do not consume Settings space")
-check(V.donationMessage.fontSize==10 and V.donationMessage.height>=180,"The full letter has a readable font and reserved height")
+check(V.donationMessage.fontSize==9 and V.donationMessage.height>0,"The letter has a 9-point body font and reserved height")
 local function fixedPage(frame)
     check(frame.kind~="ScrollFrame","Settings must fit on one page without a scroll frame")
     check(not frame.scripts.OnMouseWheel,"Settings content must not require mouse-wheel scrolling")
@@ -119,6 +124,12 @@ end
 for _,button in ipairs({V.donateKofiButton,V.donateCashAppButton}) do
     check(button.caption.fontSize==V.settingsNavigationButtons.updates.caption.fontSize,"Donation actions and Version Details use the same font size")
 end
+local kofiX,kofiY,kofiWidth,kofiHeight=rect(V.donateKofiButton)
+local cashX,cashY,cashWidth,cashHeight=rect(V.donateCashAppButton)
+local _,messageY,_,messageHeight=rect(V.donationMessage)
+check(kofiY==cashY and kofiHeight==cashHeight,"Donation buttons share one aligned bottom row")
+check(kofiX+kofiWidth<=cashX or cashX+cashWidth<=kofiX,"Donation buttons sit side by side without overlap")
+check(kofiY>=messageY+messageHeight,"The donation action row sits below the complete letter")
 local _,navigationTop=rect(V.settingsNavigationButtons.privacy)
 local _,donationTop=rect(V.donationPanel)
 check(navigationTop<=82 and donationTop<=145,"Settings navigation and donation content move upward")
@@ -126,15 +137,18 @@ for _,control in ipairs(settingsControls) do inside(control,settings,23,80,43,84
 separate(settingsControls,"Settings controls")
 for _,control in ipairs(V.donationPanel.children) do inside(control,V.donationPanel,8,8,8,6,"Donation card control") end
 separate(V.donationPanel.children,"Donation card controls")
-inside(V.donationQRThumbnail,V.donationQRButton,0,0,0,0,"Thumbnail")
-check(V.donationQRThumbnail.texture=="Interface\\AddOns\\SaureksCloset\\Textures\\CashAppQR.tga","Thumbnail uses supplied QR artwork")
+check(not V.donationQRButton and not V.donationQRThumbnail,"Settings has no QR thumbnail or QR control")
+check(not V.donationQRImage:IsVisible(),"The QR code starts hidden in the donation window")
 settings:Hide();settings:Show()
 check(table.getn(opened)==0,"Showing Settings must never launch a browser")
-click(V.donationQRButton)
-check(V.settingsInfoWindow:IsVisible() and V.infoPages.donations:IsVisible(),"QR click opens donation window")
-check(V.donationQRImage.width==256 and V.donationQRImage.height==256 and V.donationQRImage.texture==V.donationQRThumbnail.texture,"QR enlarges to its 256-pixel artwork")
+event(V.donateCashAppButton,"OnEnter")
+check(string.find(GameTooltip.title.." "..table.concat(GameTooltip.lines," "),"QR",1,true),"Settings Cash App tooltip explains the QR code")
+event(V.donateCashAppButton,"OnLeave")
+click(V.donateCashAppButton)
+check(V.settingsInfoWindow:IsVisible() and V.infoPages.donations:IsVisible(),"Settings Cash App opens the donation window")
+check(V.donationQRImage:IsVisible() and V.donationQRImage.width==256 and V.donationQRImage.height==256 and V.donationQRImage.texture=="Interface\\AddOns\\SaureksCloset\\Textures\\CashAppQR.tga","Donation window shows the supplied 256-pixel QR artwork")
 check(V.donationCopyAddress.text=="https://cash.app/$saurek","QR window exposes the Cash App destination")
-check(table.getn(opened)==0,"QR enlargement must not launch a browser")
+check(table.getn(opened)==0,"Settings Cash App must show the QR code without launching a browser")
 for _,control in ipairs(V.infoPages.donations.children) do inside(control,V.infoPages.donations,23,70,43,84,"Donation window control") end
 separate(V.infoPages.donations.children,"Donation window controls")
 for _,name in ipairs({"links","updates","privacy"}) do
@@ -142,9 +156,9 @@ for _,name in ipairs({"links","updates","privacy"}) do
     for pageName,p in pairs(V.infoPages) do check(p:IsVisible()==(pageName==name),"Navigation shows only its chosen information page") end
 end
 check(table.getn(opened)==0,"Navigation must never launch a browser")
-click(V.donationQRButton)
-for name,p in pairs(V.infoPages) do check(p:IsVisible()==(name=="donations"),"QR hides all other information pages") end
-local buttons={{V.donateKofiButton,4},{V.donateCashAppButton,5},{V.donationWindowKofiButton,4},{V.donationWindowCashAppButton,5}}
+click(V.donateCashAppButton)
+for name,p in pairs(V.infoPages) do check(p:IsVisible()==(name=="donations"),"Settings Cash App hides all other information pages") end
+local buttons={{V.donateKofiButton,4},{V.donationWindowKofiButton,4},{V.donationWindowCashAppButton,5}}
 for _,entry in ipairs(buttons) do
     local button,page=entry[1],entry[2]
     event(button,"OnEnter")
@@ -163,8 +177,13 @@ check(table.getn(opened)==calls,"Rejected inputs never reach native browser open
 local failures={false,function(page) table.insert(opened,page);return 0 end,function(page) table.insert(opened,page);error("Browser unavailable") end}
 for _,native in ipairs(failures) do
     SaureksClosetOpenWebsite=native or nil
-    for _,entry in ipairs({{V.donateKofiButton,4},{V.donateCashAppButton,5}}) do
+    for _,entry in ipairs(buttons) do
         V:OpenInfoPage("links")
+        if entry[1]~=V.donateKofiButton then
+            local before=table.getn(opened)
+            click(V.donateCashAppButton)
+            check(table.getn(opened)==before,"Showing the QR code never attempts browser opening, even when the browser is unavailable")
+        end
         V.donationCopyAddress.focused=false;V.donationCopyAddress.highlighted=false
         click(entry[1])
         check(V.infoPages.donations:IsVisible() and not V.infoPages.links:IsVisible(),"Unavailable browser opens the donation fallback page")
