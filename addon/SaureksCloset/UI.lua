@@ -1647,33 +1647,25 @@ function V:CreateSettingsPage(p)
     -- Darken only this texture at runtime; no duplicate artwork is required.
     self.settingsBackground:SetVertexColor(.6,.6,.6)
     self.settingsBorder,self.settingsShadowFrame=createWardrobeViewFrame(p,"SaureksClosetSettingsViewBorder",self.frame)
-    -- Keep settings compact enough to leave a complete donation card below.
-    self.settingsTitlePanel=CreateFrame("Frame",nil,p)
-    self.settingsTitlePanel:SetPoint("TOPLEFT",p,"TOPLEFT",38,-94)
-    self.settingsTitlePanel:SetWidth(284);self.settingsTitlePanel:SetHeight(47)
-    self.settingsTitle=label(self.settingsTitlePanel,"Saurek's Closet",0,0,284,22)
-    self.settingsTitle:SetFont("Fonts\\FRIZQT__.TTF",16);self.settingsTitle:SetJustifyH("CENTER")
-    self.settingsTagline=label(self.settingsTitlePanel,"A damn fine 1.12 transmog.",0,27,284,17,true)
-    self.settingsTagline:SetJustifyH("CENTER")
+    -- The outer sheet already names the addon; use this space for the letter.
     self.settingsNavigationButtons={}
     for i,name in ipairs({"privacy","links","updates"}) do
         local x=i==2 and 186 or 38
-        local y=i==3 and 186 or 151
-        local b=settingsButton(p,({privacy="Internet Settings",links="Links",updates="Version Details"})[name],x,y,i==3 and 284 or 136,function() V:OpenInfoPage(this.infoPage) end)
+        local y=i==3 and 113 or 82
+        local b=settingsButton(p,({privacy="Internet Settings",links="Links",updates="Version Details"})[name],x,y,136,function() V:OpenInfoPage(this.infoPage) end)
+        b.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
         b.infoPage=name;self.settingsNavigationButtons[name]=b
     end
 
-    local donation=section(p,31,224,300,200,false)
+    local donation=section(p,31,145,300,278,false)
     self.donationPanel=donation
     donation:SetBackdropColor(.06,.045,.025,.92);donation:SetBackdropBorderColor(.64,.51,.29)
-    local heading=label(donation,"Support the addon",14,10,272,18)
-    heading:SetFont("Fonts\\FRIZQT__.TTF",12)
-    self.donationMessage=label(donation,"Thanks for using my addon. I made it out of love for the game, but, it's always nice to get a tip for my effort. If you have the money to spare a donation would be appreciated! Make sure to leave a comment about any feature requests or what you love about the addon. Thanks!",14,34,272,72,true)
-    self.donationMessage:SetFont("Fonts\\FRIZQT__.TTF",10);self.donationMessage:SetSpacing(1)
+    self.donationMessage=label(donation,"Thanks for using my addon! World of Warcraft has always been more than just a game to me—it’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\nWhile donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\nSharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\nYours,\nSaurek",14,12,272,180,true)
+    self.donationMessage:SetFont("Fonts\\FRIZQT__.TTF",10);self.donationMessage:SetSpacing(0)
     self.donationMessage:SetTextColor(.9,.86,.76)
     local qr=CreateFrame("Button",nil,donation);self.donationQRButton=qr
-    qr:SetPoint("TOPLEFT",donation,"TOPLEFT",14,-112);qr:SetWidth(80);qr:SetHeight(80)
-    self.donationQRThumbnail=texture(qr,art.."CashAppQR.tga",0,0,80,80,"ARTWORK")
+    qr:SetPoint("TOPLEFT",donation,"TOPLEFT",14,-200);qr:SetWidth(72);qr:SetHeight(72)
+    self.donationQRThumbnail=texture(qr,art.."CashAppQR.tga",0,0,72,72,"ARTWORK")
     qr:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square","ADD")
     qr:SetScript("OnClick",function() V:OpenInfoPage("donations") end)
     qr:SetScript("OnEnter",function()
@@ -1681,10 +1673,10 @@ function V:CreateSettingsPage(p)
         GameTooltip:AddLine("Click for a larger, scannable QR code.",1,1,1,true);GameTooltip:Show()
     end)
     qr:SetScript("OnLeave",function() GameTooltip:Hide() end)
-    self.donateKofiButton=settingsButton(donation,"Donate with Ko-fi",110,112,176,function() V:OpenDonationLink(4) end,.65)
-    self.donateCashAppButton=settingsButton(donation,"Cash App: $saurek",110,148,176,function() V:OpenDonationLink(5) end,.65)
-    local qrHint=label(donation,"Click the QR code to enlarge",110,181,176,12,true)
-    qrHint:SetFont("Fonts\\FRIZQT__.TTF",9);qrHint:SetTextColor(.72,.68,.6)
+    self.donateKofiButton=settingsButton(donation,"Donate with Ko-fi",102,204,184,function() V:OpenDonationLink(4) end,.65)
+    self.donateCashAppButton=settingsButton(donation,"Cash App: $saurek",102,240,184,function() V:OpenDonationLink(5) end,.65)
+    self.donateKofiButton.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
+    self.donateCashAppButton.caption:SetFont("Fonts\\FRIZQT__.TTF",10)
 
     local window=sheet("SaureksClosetInformation",UIParent,"Internet Settings")
     self.settingsInfoWindow=window

@@ -98,10 +98,30 @@ end
 V:CreateSettingsPage(settings)
 check(table.getn(opened)==0,"Constructing Settings must never launch a browser")
 check(not V.settingsInfoWindow:IsShown(),"Information window starts closed")
-check(V.donationMessage.text=="Thanks for using my addon. I made it out of love for the game, but, it's always nice to get a tip for my effort. If you have the money to spare a donation would be appreciated! Make sure to leave a comment about any feature requests or what you love about the addon. Thanks!","The complete donation message is preserved")
+local expectedMessage="Thanks for using my addon! World of Warcraft has always been more than just a game to me—it’s a world full of memories, adventures, friendships, and countless little moments that somehow stick with you. I made this addon as a small love letter to that world, and I hope it adds something special to your own adventures.\n"..
+    "While donations are, of course, never required, they go a long way toward telling me, “I care about what you’re making, and I hope you keep working on it!”\n"..
+    "Sharing the addon with your friends and communities is also a huge help. And if there are any features you’d like to see in the future, please let me know!\nYours,\nSaurek"
+check(V.donationMessage.text==expectedMessage,"The full replacement letter, punctuation, paragraph breaks and signature are preserved")
+check(not V.settingsTagline and not V.settingsTitlePanel,"The tagline and repeated title do not consume Settings space")
+check(V.donationMessage.fontSize==10 and V.donationMessage.height>=180,"The full letter has a readable font and reserved height")
+local function fixedPage(frame)
+    check(frame.kind~="ScrollFrame","Settings must fit on one page without a scroll frame")
+    check(not frame.scripts.OnMouseWheel,"Settings content must not require mouse-wheel scrolling")
+    for _,child in ipairs(frame.children) do fixedPage(child) end
+end
+fixedPage(settings)
 check(V.donateKofiButton.caption.text=="Donate with Ko-fi" and V.donateCashAppButton.caption.text=="Cash App: $saurek","Both destinations are plainly labeled")
-local settingsControls={V.settingsTitlePanel,V.donationPanel}
-for _,button in pairs(V.settingsNavigationButtons) do table.insert(settingsControls,button) end
+local settingsControls={V.donationPanel}
+for _,button in pairs(V.settingsNavigationButtons) do
+    check(button.width==136 and button.caption.fontSize==10,"Navigation buttons share the half-width size and readable font")
+    table.insert(settingsControls,button)
+end
+for _,button in ipairs({V.donateKofiButton,V.donateCashAppButton}) do
+    check(button.caption.fontSize==V.settingsNavigationButtons.updates.caption.fontSize,"Donation actions and Version Details use the same font size")
+end
+local _,navigationTop=rect(V.settingsNavigationButtons.privacy)
+local _,donationTop=rect(V.donationPanel)
+check(navigationTop<=82 and donationTop<=145,"Settings navigation and donation content move upward")
 for _,control in ipairs(settingsControls) do inside(control,settings,23,80,43,84,"Settings control") end
 separate(settingsControls,"Settings controls")
 for _,control in ipairs(V.donationPanel.children) do inside(control,V.donationPanel,8,8,8,6,"Donation card control") end
